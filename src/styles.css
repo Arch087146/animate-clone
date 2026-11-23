@@ -24,21 +24,17 @@ input, select { user-select: text; }
 
 .app-shell { display: flex; flex-direction: column; height: 100%; background: var(--bg); color: var(--text); }
 
-/* ---------- Native app title bar ---------- */
-.title-bar { height: 29px; flex: 0 0 29px; background: #2f2f2f; color: #ddd; display: flex; align-items: center; padding-left: 10px; -webkit-app-region: drag; user-select: none; }
-.title-bar-app { display: flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 600; color: #f2f2f2; }
-.title-bar-app svg { color: #f04b3f; }
-.title-version { font-weight: 400; color: #999; font-size: 10px; }
-.title-bar-doc { margin-left: 22px; color: #aaa; font-size: 10px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.title-bar-controls { margin-left: auto; height: 100%; display: flex; -webkit-app-region: no-drag; }
-.title-bar-controls button { width: 42px; height: 100%; border: 0; background: transparent; color: #ccc; display: grid; place-items: center; }
-.title-bar-controls button:hover { background: #454545; }
-.title-bar-controls button.close:hover { background: #c42b1c; color: #fff; }
-.title-bar-controls svg { width: 11px; height: 11px; fill: none; stroke: currentColor; stroke-width: 1.1; stroke-linecap: square; }
+/* ---------- Window buttons live at the right end of the menu row ---------- */
+.win-controls { margin-left: auto; height: 100%; display: flex; align-items: stretch; -webkit-app-region: no-drag; }
+.win-controls button { width: 34px; height: 100%; border: 0; border-left: 1px solid transparent; background: transparent; color: #555; display: grid; place-items: center; padding: 0; }
+.win-controls button:hover { background: #d2d2d2; }
+.win-controls button.close:hover { background: #c42b1c; color: #fff; }
+.win-controls svg { width: 10px; height: 10px; fill: none; stroke: currentColor; stroke-width: 1.2; stroke-linecap: square; }
 
 /* ---------- Top bar ---------- */
 .app-top { position: relative; height: 58px; flex: 0 0 58px; background: #e8e8e8; border-bottom: 1px solid var(--border); }
-.menu-bar { height: 25px; display: flex; align-items: center; padding-left: 6px; border-bottom: 1px solid #d2d2d2; }
+.menu-bar { height: 25px; display: flex; align-items: center; padding-left: 6px; border-bottom: 1px solid #d2d2d2; -webkit-app-region: drag; }
+.menu-trigger, .adobe-mark, .win-controls { -webkit-app-region: no-drag; }
 .adobe-mark { width: 26px; height: 25px; display: grid; place-items: center; color: #e1251b; border-right: 1px solid #d2d2d2; margin-right: 4px; }
 .menu-trigger { position: relative; padding: 4px 9px; height: 100%; display: flex; align-items: center; cursor: default; }
 .menu-trigger:hover, .menu-trigger.active { background: #d2d2d2; }
@@ -275,6 +271,8 @@ html:has(.app-shell.dark) { background: #1c1c1c; }
 .app-shell.dark .adobe-mark { border-right-color: #3d3d3d; color: #f04b3f; }
 .app-shell.dark .menu-trigger { color: #e0e0e0; }
 .app-shell.dark .menu-trigger.active, .app-shell.dark .menu-trigger:hover { background: #3b3b3b; color: #fff; }
+.app-shell.dark .win-controls button { color: #c5c5c5; }
+.app-shell.dark .win-controls button:hover { background: #454545; }
 .app-shell.dark .dropdown-menu, .app-shell.dark .submenu, .app-shell.dark .context-menu, .app-shell.dark .panel-more-menu { background: #303030; border-color: #585858; color: #e0e0e0; }
 .app-shell.dark .menu-item:hover { background: #1473e6; color: #fff; }
 .app-shell.dark .menu-separator { background: #4a4a4a; }

@@ -6,7 +6,6 @@ import { PublishDialog } from './components/PublishDialog'
 import { SimpleMode } from './components/SimpleMode'
 import { RightPanel } from './components/RightPanel'
 import { Stage } from './components/Stage'
-import { TitleBar } from './components/TitleBar'
 import { Timeline } from './components/Timeline'
 import { Toolbar } from './components/Toolbar'
 import { Tutorials } from './components/Tutorials'
@@ -121,8 +120,6 @@ export default function App() {
 
   return (
     <div className={`app-shell ${state.theme === 'dark' ? 'dark' : ''}`}>
-      <TitleBar />
-
       {state.screen === 'home' && <HomeScreen />}
 
       {state.screen === 'editor' && state.mode === 'simple' && <SimpleMode />}
