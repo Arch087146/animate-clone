@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { Icon } from '../Icon'
+import { WindowControls } from './WindowControls'
 import { exportAnimationHTML, exportJSON, exportPNG, importImages, openProjectFile } from '../io'
 import { useStore } from '../store'
 import { createShape, uid } from '../types'
@@ -54,15 +55,6 @@ export function MenuBar() {
       patch: { type: 'path', points, closed: shape.type !== 'line', brush: undefined, text: undefined },
     })
     dispatch({ type: 'STATUS', message: `Broke apart ${shape.name} into a path` })
-  }
-
-  const shareProject = async () => {
-    try {
-      await navigator.clipboard.writeText(JSON.stringify(state.project, null, 2))
-      dispatch({ type: 'STATUS', message: 'Project JSON copied to clipboard — ready to share' })
-    } catch {
-      dispatch({ type: 'STATUS', message: 'Clipboard unavailable — use File → Save instead' })
-    }
   }
 
   const applyWorkspace = (name: string) => {
@@ -274,7 +266,14 @@ export function MenuBar() {
   return (
     <div className="app-top" ref={ref}>
       <div className="menu-bar">
-        <div className="adobe-mark"><Icon name="Adobe" size={17} /></div>
+        <button
+          className="adobe-mark"
+          title="Home screen"
+          aria-label="Home screen"
+          onClick={() => dispatch({ type: 'SET_SCREEN', screen: 'home' })}
+        >
+          <Icon name="Adobe" size={17} />
+        </button>
         {Object.keys(menus).map((name) => (
           <div
             key={name}
@@ -286,51 +285,27 @@ export function MenuBar() {
             {open === name && <div className="dropdown-menu">{menus[name].map(renderItem)}</div>}
           </div>
         ))}
-        {window.electronAPI?.isElectron && (
-          <div className="win-controls" role="group" aria-label="Window controls">
-            <button title="Minimize" aria-label="Minimize" onClick={() => window.electronAPI?.minimize()}>
-              <svg viewBox="0 0 12 12"><path d="M2 8.5h8" /></svg>
-            </button>
-            <button title="Maximize" aria-label="Maximize" onClick={() => window.electronAPI?.maximize()}>
-              <svg viewBox="0 0 12 12"><rect x="2.5" y="2.5" width="7" height="7" /></svg>
-            </button>
-            <button className="close" title="Close" aria-label="Close" onClick={() => window.electronAPI?.close()}>
-              <svg viewBox="0 0 12 12"><path d="M3 3l6 6M9 3l-6 6" /></svg>
-            </button>
+
+        <div className="doc-tabs">
+          <div className="doc-tab active" title={state.project.name}>
+            <Icon name="film" size={13} />
+            <span className="doc-tab-name">{state.project.name}*</span>
+            <button className="tab-close" title="Close document" onClick={() => dispatch({ type: 'SET_SCREEN', screen: 'home' })}>×</button>
           </div>
-        )}
-      </div>
-
-      <div className="doc-tabbar">
-        <div className="doc-tab active">
-          <Icon name="film" size={13} />
-          <span>{state.project.name}*</span>
-          <button className="tab-close" title="Close document" onClick={() => dispatch({ type: 'SET_SCREEN', screen: 'home' })}>×</button>
+          <button className="new-tab" title="New document" onClick={() => dispatch({ type: 'NEW_PROJECT' })}>+</button>
         </div>
-        <button className="new-tab" title="New document" onClick={() => dispatch({ type: 'NEW_PROJECT' })}>+</button>
-      </div>
 
-      <div className="top-actions">
-        <select className="workspace-select" value={workspace} onChange={(e) => applyWorkspace(e.target.value)} title="Workspace">
-          {['Animation', 'Designer', 'Developer', 'Traditional', 'Basic Functions', 'Debug', 'Essential'].map((w) => <option key={w}>{w}</option>)}
-        </select>
-        <button className="top-icon-btn" title="Home screen (Ctrl+Shift+H)" onClick={() => dispatch({ type: 'SET_SCREEN', screen: 'home' })}><Icon name="home" size={15} /></button>
-        <button className="top-icon-btn" title="Tutorials & guides (Ctrl+Shift+G)" onClick={() => dispatch({ type: 'SET_TUTORIALS_OPEN', open: true })}><Icon name="book" size={15} /></button>
-        <button className="top-icon-btn" title={state.mode === 'simple' ? 'Switch to Pro Mode' : 'Switch to Simple Mode'} onClick={() => dispatch({ type: 'SET_MODE', mode: state.mode === 'simple' ? 'pro' : 'simple' })}><Icon name={state.mode === 'simple' ? 'pro' : 'beginner'} size={15} /></button>
-        <button className="top-icon-btn" title={state.theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'} onClick={() => dispatch({ type: 'SET_THEME', theme: state.theme === 'dark' ? 'light' : 'dark' })}>
-          <Icon name={state.theme === 'dark' ? 'sun' : 'moon'} size={15} />
-        </button>
-        <button className="top-icon-btn" title="Copy project JSON to clipboard" onClick={shareProject}><Icon name="link" size={15} /></button>
-        <button className="export-btn" title="Export video, GIF, image sequence and more (Ctrl+Shift+E)" onClick={() => dispatch({ type: 'SET_PUBLISH_OPEN', open: true })}>
-          <Icon name="export" size={14} /> Export
-        </button>
-        <button
-          className="publish-btn"
-          onClick={() => exportAnimationHTML(state.project)}
-        >
-          Publish
-        </button>
-        <button className="avatar" title="Account — About Animate" onClick={() => dispatch({ type: 'SET_ACTIVE_PANEL', panel: 'about' })}>EM</button>
+        <div className="menu-tail">
+          <select className="workspace-select" value={workspace} onChange={(e) => applyWorkspace(e.target.value)} title="Workspace">
+            {['Animation', 'Designer', 'Developer', 'Traditional', 'Basic Functions', 'Debug', 'Essential'].map((w) => <option key={w}>{w}</option>)}
+          </select>
+          <button className="top-icon-btn" title="Tutorials & guides (Ctrl+Shift+G)" onClick={() => dispatch({ type: 'SET_TUTORIALS_OPEN', open: true })}><Icon name="book" size={15} /></button>
+          <button className="top-icon-btn" title={state.mode === 'simple' ? 'Switch to Pro Mode' : 'Switch to Simple Mode'} onClick={() => dispatch({ type: 'SET_MODE', mode: state.mode === 'simple' ? 'pro' : 'simple' })}><Icon name={state.mode === 'simple' ? 'pro' : 'beginner'} size={15} /></button>
+          <button className="top-icon-btn" title={state.theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'} onClick={() => dispatch({ type: 'SET_THEME', theme: state.theme === 'dark' ? 'light' : 'dark' })}>
+            <Icon name={state.theme === 'dark' ? 'sun' : 'moon'} size={15} />
+          </button>
+          <WindowControls />
+        </div>
       </div>
     </div>
   )

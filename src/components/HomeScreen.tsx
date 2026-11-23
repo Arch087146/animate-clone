@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { Icon } from '../Icon'
+import { WindowControls } from './WindowControls'
 import { openProjectFile, renderProjectFrame } from '../io'
 import { getRecents, removeRecent, type RecentProject } from '../recents'
 import { useStore } from '../store'
@@ -75,7 +76,10 @@ export function HomeScreen() {
       <main className="home-main">
         <div className="home-topbar">
           <span className="home-crumb">Home / {nav.find((n) => n.id === tab)?.label}</span>
-          <button className="home-ghost-btn" onClick={() => dispatch({ type: 'SET_TUTORIALS_OPEN', open: true })}><Icon name="help" size={14} /> Help & Guides</button>
+          <div className="home-topbar-actions">
+            <button className="home-ghost-btn" onClick={() => dispatch({ type: 'SET_TUTORIALS_OPEN', open: true })}><Icon name="help" size={14} /> Help & Guides</button>
+            <WindowControls />
+          </div>
         </div>
 
         <div className="home-scroll">
