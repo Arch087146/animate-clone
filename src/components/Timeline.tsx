@@ -76,6 +76,12 @@ export function Timeline() {
         <span className="toolbar-divider" />
         <button className={`mini-btn ${state.loop ? 'active' : ''}`} title="Loop playback" onClick={() => dispatch({ type: 'TOGGLE', key: 'loop' })}><Icon name="redo" size={13} /></button>
         <button className={`mini-btn ${state.onionSkin ? 'active' : ''}`} title="Onion skin" onClick={() => dispatch({ type: 'TOGGLE', key: 'onionSkin' })}><Icon name="onion" size={14} /></button>
+        <button className={`mini-btn ${state.showGrid ? 'active' : ''}`} title="Toggle grid" onClick={() => dispatch({ type: 'TOGGLE', key: 'showGrid' })}><Icon name="grid" size={13} /></button>
+        <button className={`mini-btn ${state.snapToGrid ? 'active' : ''}`} title="Snap to grid" onClick={() => dispatch({ type: 'TOGGLE', key: 'snapToGrid' })}><Icon name="magnet" size={13} /></button>
+        <button className={`mini-btn ${state.showBones ? 'active' : ''}`} title="Show bones" onClick={() => dispatch({ type: 'TOGGLE', key: 'showBones' })}><Icon name="bone" size={14} /></button>
+        <span className="toolbar-divider" />
+        <span className="zoom-label">{Math.round(state.zoom * 100)}%</span>
+        <input className="zoom-slider" type="range" min="0.1" max="4" step="0.05" value={state.zoom} onChange={(e) => dispatch({ type: 'SET_ZOOM', zoom: Number(e.target.value) })} title="Stage zoom" />
         <div className="tl-spacer" />
         <div className="tl-group">
           <button className="tl-text-btn" title="Insert frame (F5)" onClick={() => dispatch({ type: 'INSERT_FRAME' })}><Icon name="plus" size={12} /> Frame</button>

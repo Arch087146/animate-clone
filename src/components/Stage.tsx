@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { getBrush, smoothPoints } from '../brushes'
 import { drawBones, drawSelection, drawShape } from '../draw'
-import { Icon } from '../Icon'
 import { useStore } from '../store'
 import { createShape, type Bone, type Point, type Shape, uid } from '../types'
 import { distanceToSegment, findKeyframeIndex, getActiveKeyframe, getRenderBones, getRenderShapes, pointInShape, shapeBounds } from '../utils'
@@ -123,7 +122,6 @@ export function Stage({ compact = false }: { compact?: boolean } = {}) {
   const [draftBone, setDraftBone] = useState<Bone | null>(null)
   const [penPoints, setPenPoints] = useState<Point[]>([])
   const [lassoPoints, setLassoPoints] = useState<Point[]>([])
-  const [cursorPos, setCursorPos] = useState<Point>({ x: 0, y: 0 })
   const [snapJoint, setSnapJoint] = useState<Point | null>(null)
 
   const toWorld = useCallback((clientX: number, clientY: number): Point => {
@@ -590,7 +588,6 @@ export function Stage({ compact = false }: { compact?: boolean } = {}) {
 
   const onPointerMove = (e: React.PointerEvent<HTMLCanvasElement>) => {
     const p = toWorld(e.clientX, e.clientY)
-    setCursorPos(p)
     const drag = dragRef.current
     if (tool === 'bone' && drag.kind === 'none') {
       const snap = findSnapJoint(p)
@@ -773,60 +770,17 @@ export function Stage({ compact = false }: { compact?: boolean } = {}) {
     return () => window.removeEventListener('keydown', clear)
   }, [])
 
-  const fitStage = () => {
-    const rect = containerRef.current?.getBoundingClientRect()
-    if (!rect) return
-    dispatch({ type: 'SET_ZOOM', zoom: Math.min((rect.width - 80) / project.width, (rect.height - 80) / project.height) })
-    dispatch({ type: 'SET_PAN', pan: { x: 0, y: 0 } })
-  }
-
-  const rulerTicks = (len: number, step = 50) => Array.from({ length: Math.floor(len / step) + 1 }, (_, i) => i * step)
-
   return (
     <div className="stage-area">
-      <div className="stage-toolbar">
-        <div className="stage-toolbar-left">
-          {!compact && <>
-            <button className={`mini-btn ${state.showRulers ? 'active' : ''}`} title="Show/hide rulers" onClick={() => dispatch({ type: 'TOGGLE', key: 'showRulers' })}><Icon name="ruler" size={13} /></button>
-            <button className={`mini-btn ${state.showGrid ? 'active' : ''}`} title="Toggle grid" onClick={() => dispatch({ type: 'TOGGLE', key: 'showGrid' })}><Icon name="grid" size={13} /></button>
-            <button className={`mini-btn ${state.snapToGrid ? 'active' : ''}`} title="Snap to grid" onClick={() => dispatch({ type: 'TOGGLE', key: 'snapToGrid' })}><Icon name="magnet" size={13} /></button>
-            <button className={`mini-btn ${state.showBones ? 'active' : ''}`} title="Show bones" onClick={() => dispatch({ type: 'TOGGLE', key: 'showBones' })}><Icon name="bone" size={14} /></button>
-            <button className={`mini-btn ${state.tool === 'bone' ? 'active' : ''}`} title="Bone tool (M)" onClick={() => dispatch({ type: 'SET_TOOL', tool: 'bone' })}><Icon name="motionPath" size={14} /></button>
-            <span className="toolbar-divider" />
-          </>}
-          <button className={`mini-btn ${state.onionSkin ? 'active' : ''}`} title="Onion skin" onClick={() => dispatch({ type: 'TOGGLE', key: 'onionSkin' })}><Icon name="onion" size={14} /></button>
-          <span className="stage-label">{compact ? 'Your animation' : 'Scene 1'}</span>
-        </div>
-        <div className="stage-toolbar-right">
-          <span className="zoom-label">{Math.round(zoom * 100)}%</span>
-          <input className="zoom-slider" type="range" min="0.1" max="4" step="0.05" value={zoom} onChange={(e) => dispatch({ type: 'SET_ZOOM', zoom: Number(e.target.value) })} />
-          <button className="mini-btn" title="Fit in window" onClick={fitStage}><Icon name="center" size={13} /></button>
-        </div>
-      </div>
-      {!compact && <ToolOptions />}
+      {!compact && state.showToolOptions && <ToolOptions />}
 
       <div className="stage-viewport" ref={containerRef}>
-        {state.showRulers && !compact && (
-          <>
-            <div className="ruler ruler-h" style={{ left: 18 }}>
-              {rulerTicks(project.width).map((t) => (
-                <span key={t} className="ruler-tick" style={{ left: t * zoom }}><i />{t === 0 ? '' : t}</span>
-              ))}
-            </div>
-            <div className="ruler ruler-v" style={{ top: 18 }}>
-              {rulerTicks(project.height).map((t) => (
-                <span key={t} className="ruler-tick" style={{ top: t * zoom }}><i />{t === 0 ? '' : t}</span>
-              ))}
-            </div>
-            <div className="ruler-corner" />
-          </>
-        )}
         <div
           className="stage-wrap"
           style={{
             transform: `translate(calc(-50% + ${pan.x}px), calc(-50% + ${pan.y}px))`,
-            left: state.showRulers && !compact ? 'calc(50% + 9px)' : '50%',
-            top: state.showRulers && !compact ? 'calc(50% + 9px)' : '50%',
+            left: '50%',
+            top: '50%',
           }}
         >
           <canvas
@@ -841,12 +795,6 @@ export function Stage({ compact = false }: { compact?: boolean } = {}) {
           />
           <div className="stage-shadow" />
         </div>
-      </div>
-
-      <div className="stage-footer">
-        <span>X: {Math.round(cursorPos.x)} Y: {Math.round(cursorPos.y)}</span>
-        <span>W: {project.width} × H: {project.height} px</span>
-        <span>{state.statusMessage}</span>
       </div>
     </div>
   )

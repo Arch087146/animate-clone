@@ -224,6 +224,7 @@ export interface AppState {
   screen: AppScreen
   toolSettings: ToolSettings
   showTutorials: boolean
+  showToolOptions: boolean
   showPublish: boolean
   showPreferences: boolean
   publishFormat: string

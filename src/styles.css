@@ -22,7 +22,7 @@ button, input, select { font-family: inherit; font-size: inherit; color: inherit
 button { cursor: pointer; }
 input, select { user-select: text; }
 
-.app-shell { display: flex; flex-direction: column; height: 100%; background: var(--bg); }
+.app-shell { display: flex; flex-direction: column; height: 100%; background: var(--bg); color: var(--text); }
 
 /* ---------- Native app title bar ---------- */
 .title-bar { height: 29px; flex: 0 0 29px; background: #2f2f2f; color: #ddd; display: flex; align-items: center; padding-left: 10px; -webkit-app-region: drag; user-select: none; }
@@ -252,10 +252,15 @@ input, select { user-select: text; }
 .context-menu { position: fixed; z-index: 300; background: #fafafa; border: 1px solid #999; box-shadow: 2px 3px 8px #0004; padding: 3px 0; min-width: 190px; }
 .context-menu .menu-item { height: 22px; }
 
-/* ---------- Status bar ---------- */
-.app-statusbar { height: 20px; flex: 0 0 20px; background: #e0e0e0; border-top: 1px solid var(--border); display: flex; align-items: center; gap: 16px; padding: 0 8px; font-size: 10px; color: #555; }
-.app-statusbar span { display: flex; align-items: center; gap: 4px; }
-.status-spacer { flex: 1; }
+/* ---------- Transient feedback toast (replaces the old status bar) ---------- */
+.status-toast {
+  position: fixed; left: 50%; bottom: 26px; transform: translateX(-50%);
+  z-index: 500; max-width: 70vw; padding: 7px 14px;
+  background: #2f2f2f; color: #f2f2f2; border: 1px solid #555; border-radius: 3px;
+  box-shadow: 0 3px 12px #0005; font-size: 11px; pointer-events: none;
+  animation: toast-in .16s ease-out;
+}
+@keyframes toast-in { from { opacity: 0; transform: translate(-50%, 6px); } to { opacity: 1; transform: translate(-50%, 0); } }
 
 ::-webkit-scrollbar { width: 12px; height: 12px; }
 ::-webkit-scrollbar-track { background: #e8e8e8; }
@@ -266,9 +271,10 @@ input, select { user-select: text; }
 html:has(.app-shell.dark) { background: #1c1c1c; }
 .app-shell.dark { --border: #4a4a4a; --border-light: #5a5a5a; --text: #e0e0e0; --muted: #9a9a9a; --accent: #4c9aff; --accent-soft: #1d3a63; }
 .app-shell.dark .app-top { background: #2b2b2b; border-bottom-color: #454545; }
-.app-shell.dark .menu-bar { border-bottom-color: #3d3d3d; }
-.app-shell.dark .adobe-mark { border-right-color: #3d3d3d; }
-.app-shell.dark .menu-trigger.active, .app-shell.dark .menu-trigger:hover { background: #3b3b3b; }
+.app-shell.dark .menu-bar { border-bottom-color: #3d3d3d; color: #e0e0e0; }
+.app-shell.dark .adobe-mark { border-right-color: #3d3d3d; color: #f04b3f; }
+.app-shell.dark .menu-trigger { color: #e0e0e0; }
+.app-shell.dark .menu-trigger.active, .app-shell.dark .menu-trigger:hover { background: #3b3b3b; color: #fff; }
 .app-shell.dark .dropdown-menu, .app-shell.dark .submenu, .app-shell.dark .context-menu, .app-shell.dark .panel-more-menu { background: #303030; border-color: #585858; color: #e0e0e0; }
 .app-shell.dark .menu-item:hover { background: #1473e6; color: #fff; }
 .app-shell.dark .menu-separator { background: #4a4a4a; }
@@ -364,7 +370,6 @@ html:has(.app-shell.dark) { background: #1c1c1c; }
 .app-shell.dark .armature-badge { color: #b99cff; }
 .app-shell.dark .timeline-footer { border-top-color: #555; background: #333; }
 .app-shell.dark .tl-footer-info { color: #999; }
-.app-shell.dark .app-statusbar { background: #282828; border-top-color: #454545; color: #a5a5a5; }
 .app-shell.dark ::-webkit-scrollbar-track { background: #262626; }
 .app-shell.dark ::-webkit-scrollbar-thumb { background: #4a4a4a; border-color: #262626; }
 .app-shell.dark ::-webkit-scrollbar-thumb:hover { background: #666; }
@@ -386,6 +391,12 @@ html:has(.app-shell.dark) { background: #1c1c1c; }
   background: transparent; border: 0; color: #777;
 }
 .tool-opt-collapse:hover { color: var(--accent); }
+.tool-opt-close {
+  position: absolute; right: 3px; top: 50%; transform: translateY(-50%);
+  width: 14px; height: 16px; padding: 0; display: grid; place-items: center;
+  background: transparent; border: 0; color: #777; font-size: 15px; line-height: 1;
+}
+.tool-opt-close:hover { color: #d13438; }
 .tool-options-inner { display: flex; align-items: center; gap: 9px; width: 100%; min-width: 0; overflow-x: auto; }
 .tool-opt-title {
   flex: 0 0 auto; text-transform: capitalize; font-weight: 700; color: var(--accent);
@@ -721,18 +732,11 @@ html:has(.app-shell.dark) { background: #1c1c1c; }
 .simple-footer-tool:hover, .simple-footer-tool.active { background: var(--sm-hover); color: var(--sm-accent); }
 .simple-workspace kbd { padding: 1px 4px; border: 1px solid var(--sm-border); border-radius: 3px; background: var(--sm-panel); font-size: 9px; }
 
-/* ---------- Status bar quick navigation ---------- */
-.status-home, .status-mode, .status-guide {
-  display: flex; align-items: center; gap: 4px; height: 16px; padding: 0 6px;
-  border: 1px solid var(--border-light); border-radius: 3px; background: #efefef; color: #444; font-size: 10px;
-}
-.status-home:hover, .status-mode:hover, .status-guide:hover { background: var(--accent-soft); color: var(--accent); }
-
 /* ================================================================== *
  * Dark theme — new UI
  * ================================================================== */
 .app-shell.dark .tool-options { background: #2b2b2b; border-bottom-color: #454545; }
-.app-shell.dark .tool-opt-collapse { color: #999; }
+.app-shell.dark .tool-opt-collapse, .app-shell.dark .tool-opt-close { color: #999; }
 .app-shell.dark .tool-opt-title { color: #7db4ff; border-right-color: #555; }
 .app-shell.dark .tool-opt-label, .app-shell.dark .tool-opt-note, .app-shell.dark .tool-opt-color, .app-shell.dark .tool-opt-check { color: #a5a5a5; }
 .app-shell.dark .tool-opt-value { color: #ddd; }
@@ -778,8 +782,6 @@ html:has(.app-shell.dark) { background: #1c1c1c; }
 .app-shell.dark .simple-color-row input { border-color: #4a4e56; }
 .app-shell.dark .tip-card { background: #3b3520; border-color: #5d5229; color: #e8d78a; }
 .app-shell.dark .simple-workspace kbd { background: #1b1d21; border-color: #4a4e56; }
-.app-shell.dark .status-home, .app-shell.dark .status-mode, .app-shell.dark .status-guide { background: #333; border-color: #555; color: #ccc; }
-.app-shell.dark .status-home:hover, .app-shell.dark .status-mode:hover, .app-shell.dark .status-guide:hover { background: #1d3a63; color: #a8d1ff; }
 
 @media (max-width: 1250px) {
   .preset-grid { grid-template-columns: repeat(4, 1fr); }

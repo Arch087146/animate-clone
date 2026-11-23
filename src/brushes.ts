@@ -1,10 +1,11 @@
 import type { Point } from './types'
+import { CC0_BRUSHES } from './cc0Brushes.generated'
 
 export type BrushFamily =
   | 'Pencil' | 'Charcoal' | 'Ink' | 'Watercolor' | 'Oil' | 'Chalk' | 'Marker' | 'Airbrush'
   | 'Crayon' | 'Calligraphy' | 'Spray' | 'Neon' | 'Texture' | 'Eraser' | 'Acrylic' | 'Gouache'
   | 'Pastel' | 'Fan' | 'Dry Brush' | 'Splatter' | 'Smudge' | 'Sumi' | 'Technical' | 'Fiber'
-  | 'Gel' | 'Knife' | 'Sponge' | 'Stencil' | 'Bamboo' | 'Metallic' | 'Cloud' | 'Fur'
+  | 'Gel' | 'Knife' | 'Sponge' | 'Stencil' | 'Bamboo' | 'Metallic' | 'Cloud' | 'Fur' | 'CC0'
 
 export type DabTexture = 'smooth' | 'paper' | 'canvas' | 'grit' | 'rough' | 'fibrous' | 'crackle'
 export type DabStamp = 'none' | 'dot' | 'square' | 'leaf' | 'grass' | 'star' | 'brick' | 'splat' | 'cloud' | 'ring' | 'scale' | 'scribble'
@@ -54,6 +55,8 @@ export interface BrushParams {
   stamp?: DabStamp
   /** Alternate between two hues for multicolour / dual-tip brushes. */
   multicolor?: boolean
+  /** Bundled CC0 brush tip image used as a stamp (public-domain GIMP tips). */
+  stampImage?: string
 }
 
 export interface BrushPreset {
@@ -397,27 +400,32 @@ const specs: FamilySpec[] = [
   },
 ]
 
-export const BRUSH_FAMILIES: BrushFamily[] = specs.map((spec) => spec.family)
-
-export const BRUSHES: BrushPreset[] = specs.flatMap((spec) =>
-  spec.names.map((name, i) => {
-    const t = spec.names.length > 1 ? i / (spec.names.length - 1) : 0
-    const p: BrushParams = { ...spec.base }
-    if (spec.ranges) {
-      for (const key of Object.keys(spec.ranges) as NumericBrushParam[]) {
-        const range = spec.ranges[key]
-        if (range) (p as unknown as Record<string, number>)[key] = lerp(range[0], range[1], t)
+export const BRUSHES: BrushPreset[] = [
+  ...specs.flatMap((spec) =>
+    spec.names.map((name, i) => {
+      const t = spec.names.length > 1 ? i / (spec.names.length - 1) : 0
+      const p: BrushParams = { ...spec.base }
+      if (spec.ranges) {
+        for (const key of Object.keys(spec.ranges) as NumericBrushParam[]) {
+          const range = spec.ranges[key]
+          if (range) (p as unknown as Record<string, number>)[key] = lerp(range[0], range[1], t)
+        }
       }
-    }
-    const finalParams = spec.vary ? spec.vary(i, p, spec.names.length) : p
-    return {
-      id: `brush_${spec.family.toLowerCase().replace(/\s+/g, '')}_${i + 1}`,
-      name: `${spec.family} ${name}`,
-      family: spec.family,
-      description: spec.description,
-      params: finalParams,
-    }
-  }),
+      const finalParams = spec.vary ? spec.vary(i, p, spec.names.length) : p
+      return {
+        id: `brush_${spec.family.toLowerCase().replace(/\s+/g, '')}_${i + 1}`,
+        name: `${spec.family} ${name}`,
+        family: spec.family,
+        description: spec.description,
+        params: finalParams,
+      }
+    }),
+  ),
+  ...CC0_BRUSHES,
+]
+
+export const BRUSH_FAMILIES: BrushFamily[] = Array.from(
+  new Set(BRUSHES.map((brush) => brush.family)),
 )
 
 const BRUSH_MAP = new Map(BRUSHES.map((brush) => [brush.id, brush]))
@@ -538,6 +546,91 @@ function drawStreak(
   ctx.quadraticCurveTo((rand() - 0.5) * width * 2, (rand() - 0.5) * width, half, 0)
   ctx.stroke()
   ctx.restore()
+}
+
+/* Cached decoded + colourised CC0 brush tips. The importer writes grayscale
+ * PNGs where luminance is the tip's opacity; these helpers turn that into a
+ * coloured stamp once per (image, colour) pair so strokes stay fast. */
+const TIP_IMAGE_CACHE = new Map<string, HTMLImageElement>()
+const TINTED_TIP_CACHE = new Map<string, HTMLCanvasElement>()
+
+function loadTip(src: string): HTMLImageElement | null {
+  if (typeof Image === 'undefined') return null
+  let img = TIP_IMAGE_CACHE.get(src)
+  if (!img) {
+    img = new Image()
+    img.src = src
+    TIP_IMAGE_CACHE.set(src, img)
+  }
+  return img.complete && img.naturalWidth > 0 ? img : null
+}
+
+function colorToRGB(color: string): [number, number, number] {
+  const c = document.createElement('canvas')
+  c.width = c.height = 1
+  const cx = c.getContext('2d')
+  if (!cx) return [0, 0, 0]
+  cx.fillStyle = color
+  cx.fillRect(0, 0, 1, 1)
+  const d = cx.getImageData(0, 0, 1, 1).data
+  return [d[0], d[1], d[2]]
+}
+
+function tintedTip(src: string, color: string): HTMLCanvasElement | null {
+  const key = `${src}|${color}`
+  const cached = TINTED_TIP_CACHE.get(key)
+  if (cached) return cached
+  const img = loadTip(src)
+  if (!img) return null
+  const canvas = document.createElement('canvas')
+  canvas.width = img.naturalWidth
+  canvas.height = img.naturalHeight
+  const cx = canvas.getContext('2d')
+  if (!cx) return null
+  cx.drawImage(img, 0, 0)
+  const image = cx.getImageData(0, 0, canvas.width, canvas.height)
+  const [r, g, b] = colorToRGB(color)
+  const px = image.data
+  for (let i = 0; i < px.length; i += 4) {
+    const lum = (px[i] * 0.299 + px[i + 1] * 0.587 + px[i + 2] * 0.114) / 255
+    px[i] = r
+    px[i + 1] = g
+    px[i + 2] = b
+    px[i + 3] = Math.round(px[i + 3] * lum)
+  }
+  cx.putImageData(image, 0, 0)
+  TINTED_TIP_CACHE.set(key, canvas)
+  return canvas
+}
+
+function drawTipStamp(
+  ctx: CanvasRenderingContext2D,
+  src: string,
+  x: number,
+  y: number,
+  w: number,
+  aspect: number,
+  angle: number,
+  color: string,
+  alpha: number,
+) {
+  const tip = tintedTip(src, color)
+  if (!tip) return false
+  const h = Math.max(1, w * (tip.height / tip.width) * aspect)
+  ctx.save()
+  ctx.translate(x, y)
+  ctx.rotate(angle)
+  ctx.globalAlpha = clamp01(alpha)
+  ctx.drawImage(tip, -w / 2, -h / 2, w, h)
+  ctx.restore()
+  return true
+}
+
+// Warm the image cache so library previews and the first stroke are ready.
+if (typeof Image !== 'undefined') {
+  for (const brush of CC0_BRUSHES) {
+    if (brush.params.stampImage) loadTip(brush.params.stampImage)
+  }
 }
 
 function drawStamp(
@@ -785,7 +878,13 @@ export function renderBrushStroke(
       const useAlt = p.multicolor && (i + b) % 7 === 0
       const dabColor = useAlt ? altColor : wetness > 0 && Math.abs(spread) > 0.55 ? edgeColor : color
 
-      if ((p.streak ?? 0) > 0.55 && bristles > 2) {
+      if (p.stampImage) {
+        // Bundled CC0 brush tips define the actual mark shape. Until the image
+        // decodes, fall back to a normal dab so the stroke is never empty.
+        if (!drawTipStamp(workCtx, p.stampImage, cx, cy, baseRx * 2 * bristleScale, p.aspect, rotation, dabColor, alpha)) {
+          dab(workCtx, cx, cy, baseRx * bristleScale, Math.max(0.15, baseRy * bristleScale), rotation, dabColor, alpha, p.softness, p.irregularity ?? 0, phase + b, rand)
+        }
+      } else if ((p.streak ?? 0) > 0.55 && bristles > 2) {
         const len = baseRx * (1.2 + rand() * 1.6) * (p.streak ?? 1)
         drawStreak(workCtx, cx, cy, len, Math.max(0.4, baseRx * 0.16 * bristleScale), rotation, dabColor, alpha, rand)
       } else {

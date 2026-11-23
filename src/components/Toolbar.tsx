@@ -51,6 +51,11 @@ export function Toolbar() {
                 className={`tool-btn ${state.tool === tool.id ? 'active' : ''}`}
                 title={`${tool.label}${tool.shortcut ? ` (${tool.shortcut})` : ''}`}
                 onClick={() => dispatch({ type: 'SET_TOOL', tool: tool.id })}
+                onContextMenu={(e) => {
+                  e.preventDefault()
+                  dispatch({ type: 'SET_TOOL', tool: tool.id })
+                  dispatch({ type: 'SET_TOOL_OPTIONS_OPEN', open: true })
+                }}
               >
                 <Icon name={tool.id} size={17} />
                 {state.tool === tool.id && <span className="tool-active-mark" />}

@@ -125,6 +125,7 @@ export function ToolOptions() {
       <button className="tool-opt-collapse" title={collapsed ? 'Show tool options' : 'Hide tool options'} onClick={() => setCollapsed(!collapsed)}>
         <Icon name={collapsed ? 'chevronDown' : 'chevronUp'} size={12} />
       </button>
+      <button className="tool-opt-close" title="Close tool settings (or right-click a tool to reopen)" onClick={() => dispatch({ type: 'SET_TOOL_OPTIONS_OPEN', open: false })}>×</button>
       {!collapsed && <div className="tool-options-inner"><span className="tool-opt-title">{tool}</span>{options}</div>}
     </div>
   )

@@ -39,6 +39,7 @@ export type Action =
   | { type: 'SET_MODE'; mode: AppMode }
   | { type: 'SET_SCREEN'; screen: AppScreen }
   | { type: 'SET_TUTORIALS_OPEN'; open: boolean }
+  | { type: 'SET_TOOL_OPTIONS_OPEN'; open: boolean }
   | { type: 'SET_PUBLISH_OPEN'; open: boolean; format?: string }
   | { type: 'SET_PREFERENCES_OPEN'; open: boolean }
   | { type: 'SET_TOOL_SETTING'; key: keyof ToolSettings; value: number | string | boolean }
@@ -98,6 +99,7 @@ const initialState: AppState = {
   screen: 'home' as AppScreen,
   toolSettings: createToolSettings(),
   showTutorials: false,
+  showToolOptions: false,
   showPublish: false,
   showPreferences: false,
   publishFormat: 'mp4',
@@ -219,6 +221,8 @@ function reducer(store: Store, action: Action): Store {
       return { ...store, state: { ...state, screen: action.screen } }
     case 'SET_TUTORIALS_OPEN':
       return { ...store, state: { ...state, showTutorials: action.open } }
+    case 'SET_TOOL_OPTIONS_OPEN':
+      return { ...store, state: { ...state, showToolOptions: action.open } }
 
     case 'SET_PUBLISH_OPEN':
       return { ...store, state: { ...state, showPublish: action.open, publishFormat: action.open ? (action.format ?? 'mp4') : state.publishFormat } }

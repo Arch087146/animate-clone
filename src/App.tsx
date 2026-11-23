@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { HomeScreen } from './components/HomeScreen'
 import { MenuBar } from './components/MenuBar'
 import { PreferencesDialog } from './components/PreferencesDialog'
@@ -10,7 +10,6 @@ import { TitleBar } from './components/TitleBar'
 import { Timeline } from './components/Timeline'
 import { Toolbar } from './components/Toolbar'
 import { Tutorials } from './components/Tutorials'
-import { Icon } from './Icon'
 import { exportAnimationHTML } from './io'
 import { uid } from './types'
 import { getActiveKeyframe } from './utils'
@@ -21,6 +20,20 @@ const toolKeys: Record<string, ToolId> = {
   v: 'selection', a: 'subselection', l: 'lasso', p: 'pen', t: 'text', n: 'line',
   r: 'rectangle', o: 'oval', y: 'pencil', b: 'brush', e: 'eraser', s: 'inkBottle',
   k: 'paintBucket', i: 'eyedropper', h: 'hand', z: 'zoom', m: 'bone',
+}
+
+/** Brief, non-blocking feedback message — replaces the old status bar. */
+function StatusToast() {
+  const { state } = useStore()
+  const [message, setMessage] = useState('')
+  useEffect(() => {
+    if (!state.statusMessage) return
+    setMessage(state.statusMessage)
+    const timer = window.setTimeout(() => setMessage(''), 2800)
+    return () => window.clearTimeout(timer)
+  }, [state.statusMessage])
+  if (!message) return null
+  return <div className="status-toast">{message}</div>
 }
 
 export default function App() {
@@ -122,23 +135,9 @@ export default function App() {
           <RightPanel />
         </div>
         {state.showTimeline && <Timeline />}
-        <div className="app-statusbar">
-          <button className="status-home" title="Back to home (Ctrl+Shift+H)" onClick={() => dispatch({ type: 'SET_SCREEN', screen: 'home' })}>
-            <Icon name="home" size={12} />
-          </button>
-          <button className="status-mode" title="Switch to Simple Mode (Ctrl+Shift+M)" onClick={() => dispatch({ type: 'SET_MODE', mode: 'simple' })}>
-            <Icon name="beginner" size={12} /> Simple Mode
-          </button>
-          <span><Icon name="film" size={12} /> {state.project.name}</span>
-          <span>{state.tool}</span>
-          <span>{state.project.layers.length} layers</span>
-          <span>{state.project.fps} fps</span>
-          <span className="status-spacer" />
-          <button className="status-guide" onClick={() => dispatch({ type: 'SET_TUTORIALS_OPEN', open: true })}><Icon name="book" size={12} /> Guides</button>
-          <span>{state.statusMessage}</span>
-        </div>
       </>}
 
+      <StatusToast />
       <Tutorials />
       <PublishDialog />
       <PreferencesDialog />
