@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { Icon } from '../Icon'
 import { useStore } from '../store'
-import { findKeyframeIndex, getActiveKeyframe } from '../utils'
+import { findKeyframeIndex, getActiveKeyframe, getNextKeyframe } from '../utils'
 
 const CELL = 16
 const LABEL_W = 174
@@ -11,8 +11,29 @@ export function Timeline() {
   const { project, currentFrame, playing } = state
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; frame: number } | null>(null)
   const [collapsed, setCollapsed] = useState(false)
+  const [customMenu, setCustomMenu] = useState(false)
+  const [visibleTools, setVisibleTools] = useState({
+    frame: true, fps: true, onion: true, grid: true, snap: true, bones: true, zoom: true, pose: true,
+  })
   const gridRef = useRef<HTMLDivElement>(null)
   const scrollRef = useRef<HTMLDivElement>(null)
+
+  const centerFrame = () => {
+    const scroller = scrollRef.current
+    if (!scroller) return
+    scroller.scrollTo({ left: Math.max(0, (currentFrame - 8) * CELL), behavior: 'smooth' })
+  }
+
+  const customizeTools: { key: keyof typeof visibleTools; label: string }[] = [
+    { key: 'frame', label: 'Frame number' },
+    { key: 'fps', label: 'Frame rate' },
+    { key: 'onion', label: 'Onion skin' },
+    { key: 'grid', label: 'Grid' },
+    { key: 'snap', label: 'Snap to grid' },
+    { key: 'bones', label: 'Show bones' },
+    { key: 'zoom', label: 'Zoom' },
+    { key: 'pose', label: 'Pose button' },
+  ]
 
   useEffect(() => {
     if (!playing) return
@@ -63,36 +84,55 @@ export function Timeline() {
           <button className="mini-btn" title="Next frame" onClick={() => dispatch({ type: 'SET_CURRENT_FRAME', frame: currentFrame + 1 })}><Icon name="stepForward" size={13} /></button>
           <button className="mini-btn" title="Last frame" onClick={() => dispatch({ type: 'SET_CURRENT_FRAME', frame: project.totalFrames - 1 })}><Icon name="forward" size={13} /></button>
         </div>
+        <button className="mini-btn" title="Center frame" onClick={centerFrame}><Icon name="centerFrame" size={14} /></button>
         <span className="toolbar-divider" />
-        <div className="tl-group">
-          <label className="frame-input-label">Frame</label>
-          <input className="frame-input" type="number" min="1" max={project.totalFrames} value={currentFrame + 1} onChange={(e) => dispatch({ type: 'SET_CURRENT_FRAME', frame: Number(e.target.value) - 1 })} />
-        </div>
-        <span className="toolbar-divider" />
-        <div className="tl-group">
-          <label className="frame-input-label">FPS</label>
-          <input className="fps-input" type="number" min="1" max="60" value={project.fps} onChange={(e) => dispatch({ type: 'SET_PROJECT_PROP', prop: 'fps', value: Math.max(1, Number(e.target.value)) })} />
-        </div>
-        <span className="toolbar-divider" />
+        {visibleTools.frame && <>
+          <div className="tl-group">
+            <label className="frame-input-label">Frame</label>
+            <input className="frame-input" type="number" min="1" max={project.totalFrames} value={currentFrame + 1} onChange={(e) => dispatch({ type: 'SET_CURRENT_FRAME', frame: Number(e.target.value) - 1 })} />
+          </div>
+          <span className="toolbar-divider" />
+        </>}
+        {visibleTools.fps && <>
+          <div className="tl-group">
+            <label className="frame-input-label">FPS</label>
+            <input className="fps-input" type="number" min="1" max="120" value={project.fps} onChange={(e) => dispatch({ type: 'SET_PROJECT_PROP', prop: 'fps', value: Number(e.target.value) })} />
+          </div>
+          <span className="toolbar-divider" />
+        </>}
         <button className={`mini-btn ${state.loop ? 'active' : ''}`} title="Loop playback" onClick={() => dispatch({ type: 'TOGGLE', key: 'loop' })}><Icon name="redo" size={13} /></button>
-        <button className={`mini-btn ${state.onionSkin ? 'active' : ''}`} title="Onion skin" onClick={() => dispatch({ type: 'TOGGLE', key: 'onionSkin' })}><Icon name="onion" size={14} /></button>
-        <button className={`mini-btn ${state.showGrid ? 'active' : ''}`} title="Toggle grid" onClick={() => dispatch({ type: 'TOGGLE', key: 'showGrid' })}><Icon name="grid" size={13} /></button>
-        <button className={`mini-btn ${state.snapToGrid ? 'active' : ''}`} title="Snap to grid" onClick={() => dispatch({ type: 'TOGGLE', key: 'snapToGrid' })}><Icon name="magnet" size={13} /></button>
-        <button className={`mini-btn ${state.showBones ? 'active' : ''}`} title="Show bones" onClick={() => dispatch({ type: 'TOGGLE', key: 'showBones' })}><Icon name="bone" size={14} /></button>
-        <span className="toolbar-divider" />
-        <span className="zoom-label">{Math.round(state.zoom * 100)}%</span>
-        <input className="zoom-slider" type="range" min="0.1" max="4" step="0.05" value={state.zoom} onChange={(e) => dispatch({ type: 'SET_ZOOM', zoom: Number(e.target.value) })} title="Stage zoom" />
+        {visibleTools.onion && <button className={`mini-btn ${state.onionSkin ? 'active' : ''}`} title="Onion skin" onClick={() => dispatch({ type: 'TOGGLE', key: 'onionSkin' })}><Icon name="onion" size={14} /></button>}
+        {visibleTools.grid && <button className={`mini-btn ${state.showGrid ? 'active' : ''}`} title="Toggle grid" onClick={() => dispatch({ type: 'TOGGLE', key: 'showGrid' })}><Icon name="grid" size={13} /></button>}
+        {visibleTools.snap && <button className={`mini-btn ${state.snapToGrid ? 'active' : ''}`} title="Snap to grid" onClick={() => dispatch({ type: 'TOGGLE', key: 'snapToGrid' })}><Icon name="magnet" size={13} /></button>}
+        {visibleTools.bones && <button className={`mini-btn ${state.showBones ? 'active' : ''}`} title="Show bones" onClick={() => dispatch({ type: 'TOGGLE', key: 'showBones' })}><Icon name="bone" size={14} /></button>}
+        {visibleTools.zoom && <>
+          <span className="toolbar-divider" />
+          <span className="zoom-label">{Math.round(state.zoom * 100)}%</span>
+          <input className="zoom-slider" type="range" min="0.1" max="4" step="0.05" value={state.zoom} onChange={(e) => dispatch({ type: 'SET_ZOOM', zoom: Number(e.target.value) })} title="Stage zoom" />
+        </>}
         <div className="tl-spacer" />
         <div className="tl-group">
           <button className="tl-text-btn" title="Insert frame (F5)" onClick={() => dispatch({ type: 'INSERT_FRAME' })}><Icon name="plus" size={12} /> Frame</button>
-          <button className="tl-text-btn" title="Insert keyframe (F6)" onClick={() => dispatch({ type: 'INSERT_KEYFRAME' })}><Icon name="plus" size={12} /> Keyframe</button>
-          <button
+          <button className="tl-text-btn" title="Insert keyframe (F6)" onClick={() => dispatch({ type: 'INSERT_KEYFRAME' })}><Icon name="keyframe" size={12} /> Keyframe</button>
+          {visibleTools.pose && <button
             className="tl-text-btn pose-btn"
             title="Add pose keyframe — captures the current rig as a motion keyframe"
             onClick={() => { dispatch({ type: 'INSERT_KEYFRAME' }); dispatch({ type: 'SET_KEYFRAME_TWEEN', tween: 'motion' }); dispatch({ type: 'STATUS', message: 'Pose keyframe added' }) }}
-          ><Icon name="bone" size={12} /> Pose</button>
+          ><Icon name="bone" size={12} /> Pose</button>}
         </div>
         <span className="toolbar-divider" />
+        <div className="tl-customize">
+          <button className={`mini-btn ${customMenu ? 'active' : ''}`} title="Customize Timeline Tools" onClick={() => setCustomMenu(!customMenu)}><Icon name="hamburger" size={14} /></button>
+          {customMenu && (
+            <div className="timeline-custom-menu">
+              {customizeTools.map((tool) => (
+                <button key={tool.key} className={visibleTools[tool.key] ? 'active' : ''} onClick={() => setVisibleTools((prev) => ({ ...prev, [tool.key]: !prev[tool.key] }))}>
+                  <span className="menu-check">{visibleTools[tool.key] ? '✓' : ''}</span>{tool.label}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
         <button className="mini-btn" title={collapsed ? 'Expand timeline' : 'Collapse timeline'} onClick={() => setCollapsed(!collapsed)}><Icon name={collapsed ? 'chevronUp' : 'chevronDown'} size={13} /></button>
       </div>
 
@@ -152,8 +192,18 @@ export function Timeline() {
                   dispatch({ type: 'SET_CURRENT_FRAME', frame })
                   setContextMenu({ x: e.clientX, y: e.clientY, frame })
                 }}>
-                  {[...project.layers].reverse().map((layer) => (
+                  {[...project.layers].reverse().map((layer) => {
+                    const tweenSpans = layer.frames.map((kf, f) => {
+                      if (!kf || kf.tween === 'none') return null
+                      const next = getNextKeyframe(layer, f)
+                      const end = next ? next.start : project.totalFrames
+                      return end > f ? { f, kf, left: f * CELL, width: (end - f) * CELL } : null
+                    }).filter((span): span is NonNullable<typeof span> => !!span)
+                    return (
                     <div key={layer.id} className={`frame-row ${state.selection.layerId === layer.id ? 'selected' : ''} ${!layer.visible ? 'hidden-layer' : ''}`} style={{ width: gridWidth }}>
+                      {tweenSpans.map((span) => (
+                        <div key={`tween-${span.f}`} className={`tween-span ${span.kf.tween}`} style={{ left: span.left, width: span.width }} title={`${span.kf.tween} tween`} />
+                      ))}
                       {layer.frames.map((kf, f) => {
                         const isKey = !!kf
                         const active = kf && f === findKeyframeIndex(layer, currentFrame)
@@ -184,7 +234,8 @@ export function Timeline() {
                         )
                       })}
                     </div>
-                  ))}
+                    )
+                  })}
                 </div>
                 <div className="playhead" style={{ left: currentFrame * CELL, height: 20 + project.layers.length * 24 }} onPointerDown={scrub}>
                   <div className="playhead-head" />

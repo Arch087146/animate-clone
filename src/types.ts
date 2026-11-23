@@ -233,6 +233,7 @@ export interface AppState {
   activePanel: string
   selectedFrames: number[]
   statusMessage: string
+  dirty: boolean
 }
 
 export const uid = (prefix = 'id') =>

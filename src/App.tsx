@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { HomeScreen } from './components/HomeScreen'
 import { MenuBar } from './components/MenuBar'
 import { PreferencesDialog } from './components/PreferencesDialog'
@@ -9,7 +9,7 @@ import { Stage } from './components/Stage'
 import { Timeline } from './components/Timeline'
 import { Toolbar } from './components/Toolbar'
 import { Tutorials } from './components/Tutorials'
-import { exportAnimationHTML } from './io'
+import { exportAnimationHTML, exportJSON, openProjectFile } from './io'
 import { uid } from './types'
 import { getActiveKeyframe } from './utils'
 import { useStore } from './store'
@@ -38,14 +38,29 @@ function StatusToast() {
 export default function App() {
   const { state, dispatch } = useStore()
 
+  const stateRef = useRef(state)
+  stateRef.current = state
+
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const el = e.target as HTMLElement
       if (el && ['INPUT', 'TEXTAREA', 'SELECT'].includes(el.tagName)) return
+      const state = stateRef.current
+      if (state.showTutorials || state.showPublish || state.showPreferences) return
       const mod = e.ctrlKey || e.metaKey
       const key = e.key.toLowerCase()
 
       if (mod && key === 'n' && !e.shiftKey) { e.preventDefault(); dispatch({ type: 'NEW_PROJECT' }); return }
+      if (mod && key === 's') { e.preventDefault(); exportJSON(state.project); dispatch({ type: 'MARK_SAVED' }); return }
+      if (mod && key === 'o') { e.preventDefault(); openProjectFile((project) => dispatch({ type: 'LOAD_PROJECT', project })); return }
+      if (mod && key === 'z' && !e.shiftKey) { e.preventDefault(); dispatch({ type: 'UNDO' }); return }
+      if ((mod && key === 'z' && e.shiftKey) || (mod && key === 'y')) { e.preventDefault(); dispatch({ type: 'REDO' }); return }
+      if (mod && key === 'd') {
+        e.preventDefault()
+        const layerId = state.selection.layerId ?? state.project.layers[0]?.id
+        if (layerId) dispatch({ type: 'DUPLICATE_SHAPE', layerId, shapeId: state.selection.shapeId ?? '' })
+        return
+      }
       if (mod && key === 'x' && state.selection.shapeId && state.selection.layerId) {
         e.preventDefault()
         dispatch({ type: 'COPY_SHAPE', layerId: state.selection.layerId, shapeId: state.selection.shapeId })
@@ -53,7 +68,7 @@ export default function App() {
         return
       }
       if (mod && e.shiftKey && key === 'h') { e.preventDefault(); dispatch({ type: 'SET_SCREEN', screen: 'home' }); return }
-      if (mod && e.shiftKey && key === 'g') { e.preventDefault(); dispatch({ type: 'SET_TUTORIALS_OPEN', open: !state.showTutorials }); return }
+      if (mod && e.shiftKey && key === 'g') { e.preventDefault(); dispatch({ type: 'SET_TUTORIALS_OPEN', open: true }); return }
       if (mod && e.shiftKey && key === 'm') {
         e.preventDefault()
         dispatch({ type: 'SET_MODE', mode: state.mode === 'simple' ? 'pro' : 'simple' })
@@ -92,7 +107,7 @@ export default function App() {
       if (e.key.startsWith('Arrow') && state.selection.shapeId && state.selection.layerId) {
         e.preventDefault()
         const layer = state.project.layers.find((l) => l.id === state.selection.layerId)
-        const kf = layer?.frames.find((f) => f?.shapes.some((s) => s.id === state.selection.shapeId))
+        const kf = layer ? getActiveKeyframe(layer, state.currentFrame) : null
         const shape = kf?.shapes.find((s) => s.id === state.selection.shapeId)
         if (shape) {
           const step = e.shiftKey ? 10 : 1
@@ -116,7 +131,7 @@ export default function App() {
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [state, dispatch])
+  }, [dispatch])
 
   return (
     <div className={`app-shell ${state.theme === 'dark' ? 'dark' : ''}`}>
@@ -128,10 +143,12 @@ export default function App() {
         <MenuBar />
         <div className="app-main">
           <Toolbar />
-          <Stage />
+          <div className="editor-center">
+            <Stage />
+            {state.showTimeline && <Timeline />}
+          </div>
           <RightPanel />
         </div>
-        {state.showTimeline && <Timeline />}
       </>}
 
       <StatusToast />

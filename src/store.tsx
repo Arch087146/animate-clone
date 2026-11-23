@@ -20,6 +20,7 @@ import {
   type ToolSettings,
   uid,
 } from './types'
+import { normalizeProject, preloadProjectImages } from './io'
 import { addRecent } from './recents'
 import { createTemplateProject, type CanvasPreset } from './templates'
 import { distanceToSegment, findKeyframeIndex, getActiveKeyframe } from './utils'
@@ -48,6 +49,7 @@ export type Action =
   | { type: 'SET_ONION_OPACITY'; opacity: number }
   | { type: 'SET_ACTIVE_PANEL'; panel: string }
   | { type: 'SET_SELECTED_FRAMES'; frames: number[] }
+  | { type: 'MARK_SAVED' }
   | { type: 'STATUS'; message: string }
   | { type: 'BEGIN_TRANSFORM' }
   | { type: 'END_TRANSFORM' }
@@ -91,6 +93,7 @@ interface Store {
   past: Project[]
   future: Project[]
   historyLocked: boolean
+  transformBase: Project | null
 }
 
 const initialState: AppState = {
@@ -127,6 +130,7 @@ const initialState: AppState = {
   activePanel: 'properties',
   selectedFrames: [],
   statusMessage: 'Ready',
+  dirty: false,
 }
 
 const cloneShapes = (shapes: Shape[]): Shape[] =>
@@ -142,6 +146,11 @@ function ensureKeyframe(project: Project, layer: Layer, frame: number): { layer:
   const idx = findKeyframeIndex(layer, frame)
   const previous = idx >= 0 ? layer.frames[idx] : null
   const keyframe = createKeyframe(frame, previous ? cloneShapes(previous.shapes) : [], previous ? cloneBones(previous.bones) : [])
+  if (previous) {
+    keyframe.tween = previous.tween
+    keyframe.ease = previous.ease
+    keyframe.label = previous.label
+  }
   const newFrames = [...layer.frames]
   if (previous) {
     newFrames[previous.start] = { ...previous, duration: Math.max(1, frame - previous.start) }
@@ -157,12 +166,29 @@ function mapLayer(project: Project, layerId: string, fn: (layer: Layer) => Layer
 function mutate(store: Store, updater: (project: Project, state: AppState) => Project, status?: string): Store {
   const nextProject = updater(store.state.project, store.state)
   if (nextProject === store.state.project) return store
+  // During a drag, only the first real mutation becomes an undo step.
+  const alreadyRecorded = store.historyLocked && store.transformBase !== store.state.project
+  const past = store.historyLocked
+    ? (alreadyRecorded ? store.past : [...store.past, store.transformBase ?? store.state.project].slice(-100))
+    : [...store.past, store.state.project].slice(-100)
   return {
     ...store,
-    past: store.historyLocked ? store.past : [...store.past, store.state.project].slice(-100),
-    future: store.historyLocked ? store.future : [],
-    state: { ...store.state, project: nextProject, statusMessage: status ?? store.state.statusMessage },
+    past,
+    future: [],
+    state: {
+      ...store.state,
+      project: nextProject,
+      statusMessage: status ?? store.state.statusMessage,
+      dirty: true,
+    },
   }
+}
+
+function withClampedFrame(store: Store, reset = false): Store {
+  const max = Math.max(0, store.state.project.totalFrames - 1)
+  const frame = reset ? 0 : Math.min(max, Math.max(0, store.state.currentFrame))
+  if (store.state.currentFrame === frame && store.state.selectedFrames.length === 0) return store
+  return { ...store, state: { ...store.state, currentFrame: frame, selectedFrames: [] } }
 }
 
 function resizeFrames(project: Project, totalFrames: number): Project {
@@ -246,6 +272,7 @@ function reducer(store: Store, action: Action): Store {
           currentFrame: 0,
           selection: { layerId: project.layers[0]?.id ?? null, shapeId: null, boneId: null },
           statusMessage: `Created ${project.name}`,
+          dirty: false,
         },
       }
     }
@@ -257,17 +284,19 @@ function reducer(store: Store, action: Action): Store {
       return { ...store, state: { ...state, activePanel: action.panel } }
     case 'SET_SELECTED_FRAMES':
       return { ...store, state: { ...state, selectedFrames: action.frames } }
+    case 'MARK_SAVED':
+      return { ...store, state: { ...state, dirty: false } }
     case 'STATUS':
       return { ...store, state: { ...state, statusMessage: action.message } }
     case 'BEGIN_TRANSFORM':
       return {
         ...store,
         historyLocked: true,
-        past: [...store.past, p].slice(-100),
+        transformBase: p,
         future: [],
       }
     case 'END_TRANSFORM':
-      return { ...store, historyLocked: false }
+      return { ...store, historyLocked: false, transformBase: null }
 
     case 'ADD_SHAPE': {
       const layerId = state.selection.layerId ?? p.layers[0]?.id ?? null
@@ -288,6 +317,7 @@ function reducer(store: Store, action: Action): Store {
         },
         `Added ${action.shape.name}`,
       )
+      if (next.state.project === p) return next
       return {
         ...next,
         state: { ...next.state, selection: { layerId, shapeId: action.shape.id } },
@@ -298,18 +328,19 @@ function reducer(store: Store, action: Action): Store {
       return mutate(store, (project) => {
         const layer = project.layers.find((l) => l.id === action.layerId)
         if (!layer) return project
-        const idx = state.currentFrame
+        const frame = state.currentFrame
+        const activeIndex = findKeyframeIndex(layer, frame)
+        const active = activeIndex >= 0 ? layer.frames[activeIndex] : null
         let workingLayer = layer
-        const active = layer.frames[idx]
         if (!active || !active.shapes.some((s) => s.id === action.shapeId)) {
-          const ensured = ensureKeyframe(project, layer, idx)
+          const ensured = ensureKeyframe(project, layer, frame)
           if (!ensured) return project
           workingLayer = ensured.layer
         }
         return mapLayer({ ...project, layers: project.layers.map((l) => (l.id === layer.id ? workingLayer : l)) }, layer.id, (l) => ({
           ...l,
           frames: l.frames.map((f, i) =>
-            i === idx && f
+            i === frame && f
               ? { ...f, shapes: f.shapes.map((s) => (s.id === action.shapeId ? { ...s, ...action.patch } : s)) }
               : f,
           ),
@@ -331,7 +362,7 @@ function reducer(store: Store, action: Action): Store {
       return mutate(store, (project) => {
         const layer = project.layers.find((l) => l.id === action.layerId)
         const idx = state.currentFrame
-        const active = layer?.frames[idx]
+        const active = layer ? getActiveKeyframe(layer, idx) : null
         const shape = active?.shapes.find((s) => s.id === action.shapeId)
         if (!layer || !shape) return project
         const copy: Shape = {
@@ -340,7 +371,7 @@ function reducer(store: Store, action: Action): Store {
           name: `${shape.name} copy`,
           x: shape.x + 16,
           y: shape.y + 16,
-          points: shape.points?.map((pt) => ({ ...pt })),
+          points: shape.points?.map((pt) => ({ x: pt.x + 16, y: pt.y + 16 })),
         }
         const ensured = ensureKeyframe(project, layer, idx)
         if (!ensured) return project
@@ -348,7 +379,7 @@ function reducer(store: Store, action: Action): Store {
           ...l,
           frames: l.frames.map((f, i) => (i === idx && f ? { ...f, shapes: [...f.shapes, copy] } : f)),
         }))
-      })
+      }, 'Duplicated shape')
 
     case 'ARRANGE_SHAPE':
       return mutate(store, (project) =>
@@ -396,6 +427,7 @@ function reducer(store: Store, action: Action): Store {
           frames: l.frames.map((f, i) => (i === state.currentFrame && f ? { ...f, shapes: [...f.shapes, ...copies] } : f)),
         }))
       }, `Pasted ${copies.length} shape(s)`)
+      if (next.state.project === p) return next
       return { ...next, state: { ...next.state, selection: { layerId, shapeId: copies[0].id } } }
     }
 
@@ -534,6 +566,7 @@ function reducer(store: Store, action: Action): Store {
         name: `${item.name} instance`,
         x: s.x + 40,
         y: s.y + 40,
+        points: s.points?.map((pt) => ({ x: pt.x + 40, y: pt.y + 40 })),
       }))
       const next = mutate(store, (project) => {
         const layer = project.layers.find((l) => l.id === layerId)
@@ -545,6 +578,7 @@ function reducer(store: Store, action: Action): Store {
           frames: l.frames.map((f, i) => (i === state.currentFrame && f ? { ...f, shapes: [...f.shapes, ...copies] } : f)),
         }))
       }, `Placed ${item.name}`)
+      if (next.state.project === p) return next
       return { ...next, state: { ...next.state, selection: { layerId, shapeId: copies[0]?.id ?? null } } }
     }
 
@@ -617,19 +651,27 @@ function reducer(store: Store, action: Action): Store {
       return mutate(store, (project) => {
         const layerId = state.selection.layerId ?? project.layers[0]?.id
         const layer = project.layers.find((l) => l.id === layerId)
-        if (!layer || layer.locked || frame >= project.totalFrames) return project
+        if (!layer || layer.locked || frame < 0 || frame >= project.totalFrames) return project
         const idx = findKeyframeIndex(layer, frame)
         const previous = idx >= 0 ? layer.frames[idx] : null
+        let nextStart = project.totalFrames
+        for (let i = frame + 1; i < layer.frames.length; i++) {
+          if (layer.frames[i]) { nextStart = i; break }
+        }
         const shapes = action.blank ? [] : previous ? cloneShapes(previous.shapes) : []
         const bones = action.blank ? [] : previous ? cloneBones(previous.bones) : []
         const frames = [...layer.frames]
-        if (!action.blank && previous && previous.start < frame) {
-          frames[previous.start] = { ...previous, duration: frame - previous.start }
+        // A blank keyframe ends the previous span just like a normal keyframe.
+        if (previous && previous.start < frame) {
+          frames[previous.start] = { ...previous, duration: frame - previous.start, tween: 'none' }
         }
-        frames[frame] = createKeyframe(frame, shapes, bones)
-        const updated = mapLayer(project, layer.id, (l) => ({ ...l, frames }))
-        return updated
-      }, `Inserted keyframe at ${frame + 1}`)
+        const keyframe = createKeyframe(frame, shapes, bones)
+        keyframe.tween = action.blank ? 'none' : previous?.tween ?? 'none'
+        keyframe.ease = previous?.ease ?? 0
+        keyframe.duration = Math.max(1, nextStart - frame)
+        frames[frame] = keyframe
+        return mapLayer(project, layer.id, (l) => ({ ...l, frames }))
+      }, `Inserted ${action.blank ? 'blank keyframe' : 'keyframe'} at ${frame + 1}`)
     }
 
     case 'REMOVE_KEYFRAME': {
@@ -670,7 +712,7 @@ function reducer(store: Store, action: Action): Store {
 
     case 'REMOVE_FRAME': {
       const frame = action.frame ?? state.currentFrame
-      return mutate(store, (project) => {
+      return withClampedFrame(mutate(store, (project) => {
         if (project.totalFrames <= 1 || frame >= project.totalFrames) return project
         const layers = project.layers.map((l) => {
           const newFrames: (Keyframe | null)[] = Array(project.totalFrames - 1).fill(null)
@@ -685,17 +727,17 @@ function reducer(store: Store, action: Action): Store {
           return { ...l, frames: newFrames }
         })
         return { ...project, totalFrames: project.totalFrames - 1, layers }
-      }, `Removed frame at ${frame + 1}`)
+      }, `Removed frame at ${frame + 1}`))
     }
 
     case 'CLEAR_KEYFRAMES':
-      return mutate(store, (project) => ({
+      return withClampedFrame(mutate(store, (project) => ({
         ...project,
         layers: project.layers.map((l) => {
           const frames = l.frames.map((f, i) => (i === 0 ? createKeyframe(0, f ? cloneShapes(f.shapes) : [], f ? cloneBones(f.bones) : []) : null))
           return { ...l, frames }
         }),
-      }), 'Cleared keyframes')
+      }), 'Cleared keyframes'), true)
 
     case 'SET_KEYFRAME_TWEEN':
     case 'SET_KEYFRAME_EASE':
@@ -718,16 +760,25 @@ function reducer(store: Store, action: Action): Store {
       })
 
     case 'SET_PROJECT_PROP':
-      return mutate(store, (project) => {
+      return withClampedFrame(mutate(store, (project) => {
         if (action.prop === 'totalFrames') {
-          const total = Math.max(1, Math.min(1000, Number(action.value)))
+          const total = Math.round(Math.max(1, Math.min(1000, Number(action.value) || 1)))
           return { ...resizeFrames(project, total), totalFrames: total }
         }
+        if (action.prop === 'fps') {
+          return { ...project, fps: Math.round(Math.max(1, Math.min(120, Number(action.value) || 24))) }
+        }
+        if (action.prop === 'width' || action.prop === 'height') {
+          const size = Math.round(Math.max(1, Math.min(8192, Number(action.value) || 1)))
+          return { ...project, [action.prop]: size }
+        }
         return { ...project, [action.prop]: action.value }
-      })
+      }))
 
-    case 'LOAD_PROJECT':
-      addRecent(action.project)
+    case 'LOAD_PROJECT': {
+      const project = normalizeProject(action.project)
+      void preloadProjectImages(project)
+      addRecent(project)
       return {
         ...store,
         past: [],
@@ -735,19 +786,14 @@ function reducer(store: Store, action: Action): Store {
         state: {
           ...state,
           screen: 'editor' as AppScreen,
-          project: {
-            ...action.project,
-            library: action.project.library ?? [],
-            layers: action.project.layers.map((l) => ({
-              ...l,
-              frames: l.frames.map((f) => (f ? { ...f, bones: f.bones ?? [] } : f)),
-            })),
-          },
+          project,
           currentFrame: 0,
-          selection: { layerId: action.project.layers[0]?.id ?? null, shapeId: null },
-          statusMessage: `Opened ${action.project.name}`,
+          selection: { layerId: project.layers[0]?.id ?? null, shapeId: null },
+          statusMessage: `Opened ${project.name}`,
+          dirty: false,
         },
       }
+    }
 
     case 'NEW_PROJECT': {
       const project = createInitialProject()
@@ -763,6 +809,7 @@ function reducer(store: Store, action: Action): Store {
           currentFrame: 0,
           selection: { layerId: null, shapeId: null },
           statusMessage: 'New project',
+          dirty: false,
         },
       }
     }
@@ -774,7 +821,7 @@ function reducer(store: Store, action: Action): Store {
         ...store,
         past: store.past.slice(0, -1),
         future: [p, ...store.future].slice(0, 100),
-        state: { ...state, project: previous, statusMessage: 'Undo' },
+        state: { ...state, project: previous, statusMessage: 'Undo', dirty: true },
       }
     }
 
@@ -785,7 +832,7 @@ function reducer(store: Store, action: Action): Store {
         ...store,
         past: [...store.past, p].slice(-100),
         future: store.future.slice(1),
-        state: { ...state, project: next, statusMessage: 'Redo' },
+        state: { ...state, project: next, statusMessage: 'Redo', dirty: true },
       }
     }
 
@@ -797,7 +844,7 @@ function reducer(store: Store, action: Action): Store {
 const StoreContext = createContext<{ state: AppState; dispatch: Dispatch<Action> } | null>(null)
 
 export function StoreProvider({ children }: { children: ReactNode }) {
-  const [store, dispatch] = useReducer(reducer, { state: initialState, past: [], future: [], historyLocked: false })
+  const [store, dispatch] = useReducer(reducer, { state: initialState, past: [], future: [], historyLocked: false, transformBase: null })
   const value = useMemo(() => ({ state: store.state, dispatch }), [store.state])
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>
 }

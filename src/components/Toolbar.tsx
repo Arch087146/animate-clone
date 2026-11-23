@@ -7,7 +7,6 @@ const toolGroups: { id: ToolId; label: string; shortcut: string }[][] = [
     { id: 'selection', label: 'Selection Tool', shortcut: 'V' },
     { id: 'subselection', label: 'Subselection Tool', shortcut: 'A' },
     { id: 'lasso', label: 'Lasso Tool', shortcut: 'L' },
-    { id: 'bone', label: 'Bone Tool (rigging)', shortcut: 'M' },
   ],
   [
     { id: 'pen', label: 'Pen Tool', shortcut: 'P' },
@@ -17,8 +16,8 @@ const toolGroups: { id: ToolId; label: string; shortcut: string }[][] = [
   [
     { id: 'rectangle', label: 'Rectangle Tool', shortcut: 'R' },
     { id: 'oval', label: 'Oval Tool', shortcut: 'O' },
-    { id: 'rectPrimitive', label: 'Rectangle Primitive Tool', shortcut: 'R' },
-    { id: 'ovalPrimitive', label: 'Oval Primitive Tool', shortcut: 'O' },
+    { id: 'rectPrimitive', label: 'Rectangle Primitive Tool', shortcut: '' },
+    { id: 'ovalPrimitive', label: 'Oval Primitive Tool', shortcut: '' },
     { id: 'polyStar', label: 'PolyStar Tool', shortcut: '' },
   ],
   [
@@ -34,6 +33,7 @@ const toolGroups: { id: ToolId; label: string; shortcut: string }[][] = [
   [
     { id: 'hand', label: 'Hand Tool', shortcut: 'H' },
     { id: 'zoom', label: 'Zoom Tool', shortcut: 'Z' },
+    { id: 'bone', label: 'Bone Tool (rigging)', shortcut: 'M' },
   ],
 ]
 
@@ -74,11 +74,11 @@ export function Toolbar() {
           const f = state.fillColor, s = state.strokeColor
           dispatch({ type: 'SET_FILL', color: s })
           dispatch({ type: 'SET_STROKE', color: f })
-        }}><Icon name="redo" size={13} /></button>
+        }}><Icon name="swapColors" size={13} /></button>
         <button className="small-tool-btn" title="Reset to black and white" onClick={() => {
           dispatch({ type: 'SET_FILL', color: '#ffffff' })
           dispatch({ type: 'SET_STROKE', color: '#000000' })
-        }}><Icon name="settings" size={13} /></button>
+        }}><Icon name="defaultColors" size={13} /></button>
       </div>
     </div>
   )

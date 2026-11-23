@@ -32,11 +32,32 @@ export function HomeScreen() {
   const [tab, setTab] = useState<Tab>('home')
   const [recents, setRecents] = useState<RecentProject[]>(() => getRecents())
   const [custom, setCustom] = useState({ width: 800, height: 600, fps: 24, frames: 72, name: 'My Animation' })
+  const [templatePreset, setTemplatePreset] = useState<CanvasPreset | null>(() => {
+    try {
+      const saved = localStorage.getItem('animate.templatePreset')
+      return saved ? JSON.parse(saved) as CanvasPreset : null
+    } catch {
+      return null
+    }
+  })
 
   useEffect(() => { setRecents(getRecents()) }, [state.screen])
 
   const create = (templateId: string, preset?: CanvasPreset, name?: string, background?: string) =>
     dispatch({ type: 'CREATE_PROJECT', templateId, preset, name, background })
+
+  const rememberPreset = (preset: CanvasPreset | null) => {
+    setTemplatePreset(preset)
+    try {
+      if (preset) localStorage.setItem('animate.templatePreset', JSON.stringify(preset))
+      else localStorage.removeItem('animate.templatePreset')
+    } catch { /* storage may be unavailable */ }
+  }
+
+  const choosePreset = (preset: CanvasPreset) => {
+    rememberPreset(preset)
+    create('blank', preset)
+  }
 
   const openFile = () => openProjectFile((project) => {
     dispatch({ type: 'LOAD_PROJECT', project })
@@ -125,7 +146,7 @@ export function HomeScreen() {
               <div className="home-section-head"><h2>Canvas presets</h2><button onClick={() => setTab('new')}>View all <Icon name="arrowRight" size={12} /></button></div>
               <div className="preset-grid">
                 {CANVAS_PRESETS.slice(0, 6).map((preset) => (
-                  <button className="preset-card" key={preset.id} onClick={() => create('blank', preset)}>
+                  <button className="preset-card" key={preset.id} onClick={() => choosePreset(preset)}>
                     <Icon name={preset.icon} size={19} />
                     <b>{preset.name}</b>
                     <small>{preset.width} × {preset.height} · {preset.fps} fps</small>
@@ -138,7 +159,7 @@ export function HomeScreen() {
               <div className="home-section-head"><h2>Start from a template</h2><button onClick={() => setTab('templates')}>View all <Icon name="arrowRight" size={12} /></button></div>
               <div className="template-grid">
                 {TEMPLATES.filter((t) => t.id !== 'blank').slice(0, 3).map((template) => (
-                  <button className="template-card" key={template.id} onClick={() => create(template.id)}>
+                  <button className="template-card" key={template.id} onClick={() => create(template.id, templatePreset ?? undefined)}>
                     <TemplateThumb templateId={template.id} color={template.accent} />
                     <div className="template-card-info"><b>{template.name}</b><small>{template.description}</small><span style={{ color: template.accent }}>{template.tag}</span></div>
                   </button>
@@ -155,7 +176,7 @@ export function HomeScreen() {
             <div className="home-page-head"><h1>Create a new project</h1><p>Choose a canvas size to start with — you can change it later in Document properties.</p></div>
             <div className="preset-grid large">
               {CANVAS_PRESETS.map((preset) => (
-                <button className="preset-card" key={preset.id} onClick={() => create('blank', preset)}>
+                <button className="preset-card" key={preset.id} onClick={() => choosePreset(preset)}>
                   <Icon name={preset.icon} size={22} />
                   <b>{preset.name}</b>
                   <small>{preset.detail}</small>
@@ -171,10 +192,14 @@ export function HomeScreen() {
                 <label>Height<input type="number" min="1" value={custom.height} onChange={(e) => setCustom({ ...custom, height: Number(e.target.value) })} /></label>
                 <label>FPS<input type="number" min="1" max="60" value={custom.fps} onChange={(e) => setCustom({ ...custom, fps: Number(e.target.value) })} /></label>
                 <label>Frames<input type="number" min="1" max="1000" value={custom.frames} onChange={(e) => setCustom({ ...custom, frames: Number(e.target.value) })} /></label>
-                <button className="home-primary-btn" onClick={() => create('blank', {
-                  id: 'custom', name: 'Custom', detail: '', icon: 'film',
-                  width: custom.width, height: custom.height, fps: custom.fps, frames: custom.frames, background: '#ffffff',
-                }, custom.name || 'My Animation')}>Create</button>
+                <button className="home-primary-btn" onClick={() => {
+                  const preset: CanvasPreset = {
+                    id: 'custom', name: 'Custom', detail: '', icon: 'film',
+                    width: custom.width, height: custom.height, fps: custom.fps, frames: custom.frames, background: '#ffffff',
+                  }
+                  rememberPreset(preset)
+                  create('blank', preset, custom.name || 'My Animation')
+                }}>Create</button>
               </div>
             </section>
           </>}
@@ -189,11 +214,27 @@ export function HomeScreen() {
 
           {tab === 'templates' && <>
             <div className="home-page-head"><h1>Templates</h1><p>Jump-start your animation with a ready-made scene you can edit freely.</p></div>
+            <div className="template-canvas-picker">
+              <label htmlFor="template-canvas">Canvas</label>
+              <select
+                id="template-canvas"
+                className="template-canvas-select"
+                value={templatePreset?.id ?? 'original'}
+                onChange={(e) => {
+                  const preset = CANVAS_PRESETS.find((p) => p.id === e.target.value)
+                  rememberPreset(preset ?? null)
+                }}
+              >
+                <option value="original">Template's original size</option>
+                {CANVAS_PRESETS.map((preset) => <option key={preset.id} value={preset.id}>{preset.name} · {preset.width}×{preset.height}</option>)}
+              </select>
+              <small>Templates scale to the selected canvas.</small>
+            </div>
             <div className="template-grid all">
               {TEMPLATES.map((template) => (
-                <button className="template-card" key={template.id} onClick={() => create(template.id, template.id === 'blank' ? CANVAS_PRESETS[0] : undefined)}>
+                <button className="template-card" key={template.id} onClick={() => create(template.id, template.id === 'blank' ? templatePreset ?? CANVAS_PRESETS[0] : templatePreset ?? undefined)}>
                   <TemplateThumb templateId={template.id} color={template.accent} />
-                  <div className="template-card-info"><b>{template.name}</b><small>{template.description}</small><span style={{ color: template.accent }}>{template.tag} · {template.width}×{template.height}</span></div>
+                  <div className="template-card-info"><b>{template.name}</b><small>{template.description}</small><span style={{ color: template.accent }}>{template.tag} · {templatePreset ? `${templatePreset.width}×${templatePreset.height}` : `${template.width}×${template.height}`}</span></div>
                 </button>
               ))}
             </div>

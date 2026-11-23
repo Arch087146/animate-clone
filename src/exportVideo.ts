@@ -111,6 +111,9 @@ function recorderMime(format: VideoFormat) {
 /** Browser fallback used when running outside Electron (e.g. `npm run dev`). */
 async function exportWithMediaRecorder(project: Project, options: ExportOptions, onProgress: (fraction: number, label: string) => void) {
   if (typeof MediaRecorder === 'undefined') throw new Error('Video recording is not available in this browser')
+  if (['gif', 'apng', 'pngseq', 'sheet', 'html', 'json'].includes(options.format)) {
+    throw new Error(`${options.format.toUpperCase()} export requires the desktop app. Open Publish Settings from the installed app.`)
+  }
   const mime = recorderMime(options.format)
   if (!mime) throw new Error('This browser cannot record video')
   const canvas = makeCanvas(project, options)
@@ -120,21 +123,30 @@ async function exportWithMediaRecorder(project: Project, options: ExportOptions,
   const recorder = new MediaRecorder(stream, { mimeType: mime, videoBitsPerSecond: bits })
   const chunks: BlobPart[] = []
   recorder.ondataavailable = (e) => { if (e.data.size) chunks.push(e.data) }
-  const stopped = new Promise<void>((resolve) => { recorder.onstop = () => resolve() })
-  recorder.start()
-  const interval = 1000 / (options.fps || project.fps)
-  for (let f = 0; f < project.totalFrames; f++) {
-    paintFrame(canvas, project, f, options)
-    await new Promise<void>((resolve) => setTimeout(resolve, interval))
-    onProgress((f + 1) / project.totalFrames, `Recording frame ${f + 1} of ${project.totalFrames}`)
-  }
-  recorder.stop()
-  await stopped
-  stream.getTracks().forEach((t) => t.stop())
-  const ext = mime.includes('mp4') ? 'mp4' : 'webm'
-  downloadBlob(new Blob(chunks, { type: mime }), `${project.name}.${ext}`)
-  if (ext !== options.format) {
-    onProgress(1, `Saved as .${ext} (this browser cannot encode ${options.format.toUpperCase()})`)
+  let timeout = 0
+  const stopped = new Promise<void>((resolve, reject) => {
+    recorder.onstop = () => resolve()
+    ;(recorder as any).onerror = (event: any) => reject(new Error(event?.error?.message || 'Recording failed'))
+    timeout = window.setTimeout(() => reject(new Error('Recording timed out')), 30000)
+  })
+  try {
+    recorder.start()
+    const interval = 1000 / Math.max(1, options.fps || project.fps)
+    for (let f = 0; f < project.totalFrames; f++) {
+      paintFrame(canvas, project, f, options)
+      await new Promise<void>((resolve) => setTimeout(resolve, interval))
+      onProgress((f + 1) / project.totalFrames, `Recording frame ${f + 1} of ${project.totalFrames}`)
+    }
+    recorder.stop()
+    await stopped
+    const ext = mime.includes('mp4') ? 'mp4' : 'webm'
+    downloadBlob(new Blob(chunks, { type: mime }), `${project.name}.${ext}`)
+    if (ext !== options.format) {
+      onProgress(1, `Saved as .${ext} (this browser cannot encode ${options.format.toUpperCase()})`)
+    }
+  } finally {
+    window.clearTimeout(timeout)
+    stream.getTracks().forEach((t) => t.stop())
   }
 }
 
@@ -147,6 +159,9 @@ async function exportSpriteSheet(project: Project, options: ExportOptions, onPro
   const sheet = document.createElement('canvas')
   sheet.width = cols * cell.width
   sheet.height = rows * cell.height
+  if (sheet.width > 16384 || sheet.height > 16384) {
+    throw new Error('Sprite sheet is too large. Reduce the scale or frame count.')
+  }
   const ctx = sheet.getContext('2d')!
   const source = makeCanvas(project, options)
   const frames: { filename: string; frame: number; x: number; y: number; width: number; height: number }[] = []
@@ -165,7 +180,8 @@ async function exportSpriteSheet(project: Project, options: ExportOptions, onPro
   }
 
   const blob = await new Promise<Blob | null>((resolve) => sheet.toBlob(resolve, 'image/png'))
-  if (blob) downloadBlob(blob, `${project.name}_spritesheet.png`)
+  if (!blob) throw new Error('Could not encode the sprite sheet')
+  downloadBlob(blob, `${project.name}_spritesheet.png`)
   const atlas = {
     frames,
     meta: {
@@ -187,7 +203,7 @@ export async function exportProject(
 ): Promise<string> {
   if (options.format === 'html') {
     onProgress(0.4, 'Building HTML animation...')
-    exportAnimationHTML(project)
+    exportAnimationHTML(project, options)
     onProgress(1, 'HTML animation saved')
     return 'HTML animation saved'
   }

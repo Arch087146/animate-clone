@@ -180,14 +180,67 @@ function sunrise(): Project {
   }
 }
 
+function scaleBone(bone: Bone, sx: number, sy: number): Bone {
+  return {
+    ...bone,
+    x1: bone.x1 * sx, y1: bone.y1 * sy,
+    x2: bone.x2 * sx, y2: bone.y2 * sy,
+  }
+}
+
+function scaleShape(shape: Shape, sx: number, sy: number): Shape {
+  return {
+    ...shape,
+    x: shape.x * sx, y: shape.y * sy,
+    width: shape.width * sx, height: shape.height * sy,
+    points: shape.points?.map((p) => ({ x: p.x * sx, y: p.y * sy })),
+  }
+}
+
+/** Makes the canvas preset win over the dimensions hard-coded into a template. */
+function applyPreset(project: Project, preset: CanvasPreset): Project {
+  const sx = preset.width / project.width
+  const sy = preset.height / project.height
+  const layers = project.layers.map((layer) => ({
+    ...layer,
+    frames: Array.from({ length: preset.frames }, (_, i) => {
+      const kf = layer.frames[i]
+      if (!kf) return null
+      const nextIndex = layer.frames.findIndex((next, j) => j > i && !!next)
+      return {
+        ...kf,
+        start: i,
+        duration: Math.max(1, (nextIndex < 0 ? preset.frames : nextIndex) - i),
+        shapes: kf.shapes.map((shape) => scaleShape(shape, sx, sy)),
+        bones: (kf.bones ?? []).map((bone) => scaleBone(bone, sx, sy)),
+      }
+    }),
+  }))
+  return {
+    ...project,
+    width: preset.width,
+    height: preset.height,
+    fps: preset.fps,
+    totalFrames: preset.frames,
+    backgroundColor: preset.background,
+    layers,
+  }
+}
+
 export function createTemplateProject(templateId: string, preset?: CanvasPreset): Project {
+  if (templateId === 'blank' || !preset) {
+    return templateId === 'blank' ? blankProject(preset ?? CANVAS_PRESETS[0]) : baseTemplate(templateId)
+  }
+  return applyPreset(baseTemplate(templateId), preset)
+}
+
+function baseTemplate(templateId: string): Project {
   switch (templateId) {
     case 'bouncing': return createInitialProject()
     case 'stickman': return stickFigure()
     case 'walkcycle': return walkCycle()
     case 'logo': return logoSting()
     case 'sunrise': return sunrise()
-    case 'blank':
-    default: return blankProject(preset ?? CANVAS_PRESETS[0])
+    default: return blankProject(CANVAS_PRESETS[0])
   }
 }

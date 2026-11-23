@@ -6,5 +6,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
   maximize: () => ipcRenderer.send('win:maximize'),
   close: () => ipcRenderer.send('win:close'),
   exportVideo: (payload) => ipcRenderer.invoke('export:video', payload),
-  onExportProgress: (callback) => ipcRenderer.on('export:progress', (_event, fraction) => callback(fraction)),
+  onExportProgress: (callback) => {
+    const listener = (_event, fraction) => callback(fraction)
+    ipcRenderer.on('export:progress', listener)
+    return () => ipcRenderer.removeListener('export:progress', listener)
+  },
 })

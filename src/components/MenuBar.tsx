@@ -24,21 +24,6 @@ export function MenuBar() {
     return () => window.removeEventListener('mousedown', close)
   }, [])
 
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      const mod = e.ctrlKey || e.metaKey
-      if (!mod) return
-      const key = e.key.toLowerCase()
-      if (key === 's') { e.preventDefault(); exportJSON(state.project) }
-      if (key === 'z' && !e.shiftKey) { e.preventDefault(); dispatch({ type: 'UNDO' }) }
-      if ((key === 'z' && e.shiftKey) || key === 'y') { e.preventDefault(); dispatch({ type: 'REDO' }) }
-      if (key === 'o') { e.preventDefault(); openProjectFile((project) => dispatch({ type: 'LOAD_PROJECT', project })) }
-      if (key === 'd') { e.preventDefault(); dispatch({ type: 'DUPLICATE_SHAPE', layerId: state.selection.layerId ?? state.project.layers[0].id, shapeId: state.selection.shapeId ?? '' }) }
-    }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [state, dispatch])
-
   const breakApart = () => {
     const layer = state.project.layers.find((l) => l.id === state.selection.layerId)
     const shape = getActiveKeyframe(layer ?? state.project.layers[0], state.currentFrame)?.shapes.find((s) => s.id === state.selection.shapeId)
@@ -59,11 +44,11 @@ export function MenuBar() {
 
   const applyWorkspace = (name: string) => {
     setWorkspace(name)
-    const simple = name === 'Basic Functions' || name === 'Essential'
+    const simple = name === 'Basic Functions' || name === 'Essentials'
     dispatch({ type: 'SET_MODE', mode: simple ? 'simple' : 'pro' })
     const panels: Record<string, string> = {
       Designer: 'properties', Developer: 'publish', Traditional: 'library',
-      Debug: 'debug', Animation: 'properties', 'Basic Functions': 'properties', Essential: 'properties',
+      Debug: 'debug', Animation: 'properties', 'Basic Functions': 'properties', Essentials: 'properties',
     }
     dispatch({ type: 'SET_ACTIVE_PANEL', panel: panels[name] ?? 'properties' })
     dispatch({ type: 'STATUS', message: `Workspace: ${name}` })
@@ -76,9 +61,9 @@ export function MenuBar() {
       { label: 'New from Template...', action: () => dispatch({ type: 'SET_SCREEN', screen: 'home' }) },
       { label: 'Open...', shortcut: 'Ctrl+O', action: () => openProjectFile((project) => dispatch({ type: 'LOAD_PROJECT', project })) },
       { separator: true },
-      { label: 'Save', shortcut: 'Ctrl+S', action: () => exportJSON(state.project) },
-      { label: 'Save As...', action: () => exportJSON(state.project) },
-      { label: 'Save to Computer...', action: () => exportJSON(state.project) },
+      { label: 'Save', shortcut: 'Ctrl+S', action: () => { exportJSON(state.project); dispatch({ type: 'MARK_SAVED' }) } },
+      { label: 'Save As...', action: () => { exportJSON(state.project); dispatch({ type: 'MARK_SAVED' }) } },
+      { label: 'Save to Computer...', action: () => { exportJSON(state.project); dispatch({ type: 'MARK_SAVED' }) } },
       { separator: true },
       { label: 'Import', sub: [
         { label: 'Import to Stage...', action: () => importImages((images) => {
@@ -120,6 +105,10 @@ export function MenuBar() {
         { label: 'Export Project (JSON)', action: () => exportJSON(state.project) },
       ] },
       { separator: true },
+      { label: 'Publish Preview', sub: [
+        { label: 'HTML5 Canvas', action: () => exportAnimationHTML(state.project) },
+        { label: 'Video (Publish Settings)', action: () => dispatch({ type: 'SET_PUBLISH_OPEN', open: true, format: 'mp4' }) },
+      ] },
       { label: 'Publish Settings...', action: () => dispatch({ type: 'SET_PUBLISH_OPEN', open: true, format: 'mp4' }) },
       { label: 'Publish', shortcut: 'Ctrl+Enter', action: () => exportAnimationHTML(state.project) },
     ],
@@ -138,6 +127,8 @@ export function MenuBar() {
       { label: 'Duplicate', shortcut: 'Ctrl+D', action: () => dispatch({ type: 'DUPLICATE_SHAPE', layerId: state.selection.layerId ?? state.project.layers[0].id, shapeId: state.selection.shapeId ?? '' }) },
       { separator: true },
       { label: 'Select All', shortcut: 'Ctrl+A', action: () => dispatch({ type: 'STATUS', message: 'All shapes selected' }) },
+      { separator: true },
+      { label: 'Keyboard Shortcuts', action: () => dispatch({ type: 'SET_TUTORIALS_OPEN', open: true }) },
       { label: 'Preferences...', shortcut: 'Ctrl+U', action: () => dispatch({ type: 'SET_PREFERENCES_OPEN', open: true }) },
     ],
     View: [
@@ -227,7 +218,6 @@ export function MenuBar() {
     Help: [
       { label: 'Tutorials & Guides', shortcut: 'Ctrl+Shift+G', action: () => dispatch({ type: 'SET_TUTORIALS_OPEN', open: true }) },
       { label: 'Getting Started', action: () => dispatch({ type: 'SET_TUTORIALS_OPEN', open: true }) },
-      { label: 'Keyboard Shortcuts', action: () => dispatch({ type: 'SET_TUTORIALS_OPEN', open: true }) },
       { separator: true },
       { label: 'Animate Help', action: () => dispatch({ type: 'SET_TUTORIALS_OPEN', open: true }) },
       { separator: true },
@@ -289,7 +279,7 @@ export function MenuBar() {
         <div className="doc-tabs">
           <div className="doc-tab active" title={state.project.name}>
             <Icon name="film" size={13} />
-            <span className="doc-tab-name">{state.project.name}*</span>
+            <span className="doc-tab-name">{state.project.name}{state.dirty ? '*' : ''}</span>
             <button className="tab-close" title="Close document" onClick={() => dispatch({ type: 'SET_SCREEN', screen: 'home' })}>×</button>
           </div>
           <button className="new-tab" title="New document" onClick={() => dispatch({ type: 'NEW_PROJECT' })}>+</button>
@@ -297,7 +287,7 @@ export function MenuBar() {
 
         <div className="menu-tail">
           <select className="workspace-select" value={workspace} onChange={(e) => applyWorkspace(e.target.value)} title="Workspace">
-            {['Animation', 'Designer', 'Developer', 'Traditional', 'Basic Functions', 'Debug', 'Essential'].map((w) => <option key={w}>{w}</option>)}
+            {['Animation', 'Designer', 'Developer', 'Traditional', 'Basic Functions', 'Debug', 'Essentials'].map((w) => <option key={w}>{w}</option>)}
           </select>
           <button className="top-icon-btn" title="Tutorials & guides (Ctrl+Shift+G)" onClick={() => dispatch({ type: 'SET_TUTORIALS_OPEN', open: true })}><Icon name="book" size={15} /></button>
           <button className="top-icon-btn" title={state.mode === 'simple' ? 'Switch to Pro Mode' : 'Switch to Simple Mode'} onClick={() => dispatch({ type: 'SET_MODE', mode: state.mode === 'simple' ? 'pro' : 'simple' })}><Icon name={state.mode === 'simple' ? 'pro' : 'beginner'} size={15} /></button>

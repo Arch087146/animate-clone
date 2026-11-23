@@ -30,7 +30,8 @@ export function PublishDialog() {
 
   useEffect(() => {
     if (!showPublish || !window.electronAPI?.onExportProgress) return
-    window.electronAPI.onExportProgress((fraction) => setProgress(0.65 + fraction * 0.35))
+    const dispose = window.electronAPI.onExportProgress((fraction) => setProgress(0.65 + fraction * 0.35))
+    return dispose
   }, [showPublish])
 
   useEffect(() => {

@@ -13,14 +13,6 @@ const SWATCHES = [
   '#8b4513', '#a0522d', '#3cb371', '#2e8b57', '#4682b4', '#1e90ff',
 ]
 
-const LIBRARY_ITEMS = [
-  { name: 'Button', type: 'Button', icon: 'film' },
-  { name: 'Graphic 1', type: 'Graphic', icon: 'image' },
-  { name: 'Ball Symbol', type: 'Graphic', icon: 'oval' },
-  { name: 'Background', type: 'Graphic', icon: 'rectangle' },
-  { name: 'Sound 1', type: 'Sound', icon: 'film' },
-]
-
 export function RightPanel() {
   const { state, dispatch } = useStore()
   const { project, selection, currentFrame } = state
@@ -118,7 +110,6 @@ export function RightPanel() {
 
   const q = librarySearch.trim().toLowerCase()
   const visibleLibrary = (project.library ?? []).filter((item) => !q || item.name.toLowerCase().includes(q))
-  const visibleStatic = LIBRARY_ITEMS.filter((item) => !q || item.name.toLowerCase().includes(q))
   const newSymbol = () => {
     const id = uid('symbol')
     const source = shape ?? createShape({ name: 'Symbol', type: 'oval', x: 40, y: 40, width: 80, height: 80 })
@@ -366,33 +357,9 @@ export function RightPanel() {
                   <button className="library-delete" title="Delete symbol" onClick={(e) => { e.stopPropagation(); dispatch({ type: 'DELETE_LIBRARY_ITEM', itemId: item.id }); if (selectedLibraryId === item.id) setSelectedLibraryId(null) }}>×</button>
                 </div>
               ))}
-              {visibleStatic.map((item) => {
-                const i = LIBRARY_ITEMS.indexOf(item)
-                return (
-                  <div
-                    className="library-item"
-                    key={item.name}
-                    onClick={() => setSelectedLibraryId(null)}
-                    onDoubleClick={() => {
-                      dispatch({
-                        type: 'ADD_SHAPE',
-                        shape: createShape({
-                          id: uid('shape'), name: item.name, type: i % 2 === 0 ? 'rectangle' : 'oval',
-                          x: project.width / 2 - 50, y: project.height / 2 - 40,
-                          width: 100, height: 80, fill: ['#1473e6', '#ff4081', '#4caf50', '#ffc107', '#9c27b0'][i],
-                        }),
-                      })
-                    }}
-                  >
-                    <Icon name={item.icon} size={15} />
-                    <span>{item.name}</span>
-                    <small>{item.type}</small>
-                  </div>
-                )
-              })}
-              {!visibleLibrary.length && !visibleStatic.length && <div className="empty-hint">No library items match “{librarySearch}”.</div>}
+              {!visibleLibrary.length && <div className="empty-hint">{q ? `No library items match “${librarySearch}”.` : 'No symbols yet. Use + to create one.'}</div>}
             </div>
-            <div className="library-footer">{q ? `${visibleLibrary.length + visibleStatic.length} of ` : ''}{LIBRARY_ITEMS.length + (project.library ?? []).length} items · double-click to place</div>
+            <div className="library-footer">{q ? `${visibleLibrary.length} of ` : ''}{(project.library ?? []).length} items · double-click to place</div>
           </div>
         )}
 

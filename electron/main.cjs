@@ -131,17 +131,20 @@ function runFFmpeg(binary, args, totalSeconds, sender) {
     const withProgress = [...args.slice(0, -1), '-progress', 'pipe:1', '-nostats', args[args.length - 1]]
     const proc = spawn(binary, withProgress, { windowsHide: true })
     let stderr = ''
-    proc.stderr.on('data', (chunk) => { stderr += chunk.toString().slice(-4000) })
+    const progress = (fraction) => {
+      if (!sender.isDestroyed()) sender.send('export:progress', fraction)
+    }
+    proc.stderr.on('data', (chunk) => { stderr = (stderr + chunk.toString()).slice(-4000) })
     proc.stdout.on('data', (chunk) => {
       const match = chunk.toString().match(/out_time_ms=(\d+)/)
       if (match && totalSeconds > 0) {
         const fraction = Math.min(0.99, Number(match[1]) / 1e6 / totalSeconds)
-        sender.send('export:progress', fraction)
+        progress(fraction)
       }
     })
     proc.on('error', (err) => reject(new Error(`Could not start ffmpeg: ${err.message}`)))
     proc.on('close', (code) => {
-      if (code === 0) { sender.send('export:progress', 1); resolve() }
+      if (code === 0) { progress(1); resolve() }
       else reject(new Error(stderr.trim().split('\n').slice(-4).join('\n') || `ffmpeg exited with code ${code}`))
     })
   })
@@ -186,12 +189,14 @@ ipcMain.handle('export:video', async (event, payload) => {
     for (let i = 0; i < frames.length; i++) {
       await fsp.writeFile(path.join(tmp, `frame_${String(i).padStart(5, '0')}.png`), Buffer.from(frames[i]))
     }
-    const args = ffmpegArgs(format, payload, path.join(tmp, 'frame_%05d.png'), output)
+    const stagedOutput = path.join(tmp, `output.${spec.ext}`)
+    const args = ffmpegArgs(format, payload, path.join(tmp, 'frame_%05d.png'), stagedOutput)
     const seconds = frames.length / Math.max(1, payload.fps || 24)
     await runFFmpeg(ffmpegPath(), args, seconds, event.sender)
+    // Only overwrite the user's chosen file after encoding succeeds.
+    await fsp.copyFile(stagedOutput, output)
     return { cancelled: false, path: output }
   } catch (err) {
-    try { await fsp.rm(output, { force: true }) } catch { /* ignore */ }
     console.error('[animate] export failed:', err.message)
     return { cancelled: false, message: err.message }
   } finally {

@@ -22,7 +22,7 @@ interface ElectronAPI {
   maximize: () => void
   close: () => void
   exportVideo: (payload: ExportVideoPayload) => Promise<ExportVideoResult>
-  onExportProgress: (callback: (fraction: number) => void) => void
+  onExportProgress: (callback: (fraction: number) => void) => () => void
 }
 
 declare global {
