@@ -69,6 +69,37 @@ function interpolateShape(a: Shape, b: Shape | undefined, t: number, shapeTween:
   return base
 }
 
+/** Samples a polyline track at 0..1. Angle is the tangent in radians. */
+export function pointOnPath(points: Point[], t: number): { point: Point; angle: number } | null {
+  if (!points.length) return null
+  if (points.length === 1) return { point: points[0], angle: 0 }
+  const lengths: number[] = []
+  let total = 0
+  for (let i = 1; i < points.length; i++) {
+    const length = Math.hypot(points[i].x - points[i - 1].x, points[i].y - points[i - 1].y)
+    lengths.push(length)
+    total += length
+  }
+  if (total <= 0) return { point: points[0], angle: 0 }
+  const target = Math.max(0, Math.min(1, t)) * total
+  let travelled = 0
+  for (let i = 0; i < lengths.length; i++) {
+    const length = lengths[i]
+    if (travelled + length >= target || i === lengths.length - 1) {
+      const local = length > 0 ? Math.min(1, (target - travelled) / length) : 0
+      const a = points[i]
+      const b = points[i + 1]
+      return {
+        point: { x: a.x + (b.x - a.x) * local, y: a.y + (b.y - a.y) * local },
+        angle: Math.atan2(b.y - a.y, b.x - a.x),
+      }
+    }
+    travelled += length
+  }
+  const last = points[points.length - 1]
+  return { point: last, angle: 0 }
+}
+
 export interface RenderShape {
   shape: Shape
   layer: Layer
@@ -90,7 +121,22 @@ export function getRenderShapes(project: Project, frame: number): RenderShape[] 
       const raw = (frame - kf.start) / (next.start - kf.start)
       const t = easeValue(Math.max(0, Math.min(1, raw)), kf.ease)
       const nextById = new Map(next.shapes.map((s) => [s.id, s]))
-      shapes = kf.shapes.map((s) => interpolateShape(s, nextById.get(s.id), t, kf.tween === 'shape'))
+      shapes = kf.shapes.map((s) => {
+        let rendered = interpolateShape(s, nextById.get(s.id), t, kf.tween === 'shape')
+        const path = kf.motionPaths?.[s.id]
+        if (path && path.length > 1) {
+          const sample = pointOnPath(path, t)
+          if (sample) {
+            rendered = {
+              ...rendered,
+              x: sample.point.x - rendered.width / 2,
+              y: sample.point.y - rendered.height / 2,
+              ...(kf.motionPathOrient?.[s.id] ? { rotation: (sample.angle * 180) / Math.PI } : {}),
+            }
+          }
+        }
+        return rendered
+      })
       interpolated = true
     }
     for (const shape of shapes) {

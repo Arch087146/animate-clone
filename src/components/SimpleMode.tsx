@@ -14,6 +14,7 @@ const SIMPLE_TOOLS: { id: ToolId; label: string; icon: string; hint: string }[] 
   { id: 'text', label: 'Text', icon: 'text', hint: 'Click on the stage to add text, then type your words in the Properties panel.' },
   { id: 'eraser', label: 'Erase', icon: 'eraser', hint: 'Drag across a drawing to erase part of it. Use the size slider to change the eraser.' },
   { id: 'bone', label: 'Bones', icon: 'bone', hint: 'Drag to draw a bone. Drag from a bone’s end joint to add a child limb. Drag its head or body to pose it. Hold Alt for a free bone.' },
+  { id: 'motionPath', label: 'Motion Path', icon: 'motionPath', hint: 'Select a shape, then drag on the stage to draw the track it should follow. The shape animates along that track.' },
 ]
 
 const FAMILY_CHIPS: { family: BrushFamily; label: string; color: string }[] = [
@@ -55,17 +56,14 @@ export function SimpleMode() {
       dispatch({ type: 'STATUS', message: 'Select a shape first, then press Make it move' })
       return
     }
-    const target = Math.min(project.totalFrames - 1, currentFrame + 10)
-    dispatch({ type: 'INSERT_KEYFRAME' })
-    dispatch({ type: 'INSERT_KEYFRAME', frame: target })
-    dispatch({ type: 'SET_CURRENT_FRAME', frame: target })
-    dispatch({
-      type: 'UPDATE_SHAPE', layerId: layer.id, shapeId: shape.id,
-      patch: { x: shape.x + 90, y: shape.y - 40, points: shape.points?.map((p) => ({ x: p.x + 90, y: p.y - 40 })) },
-    })
-    dispatch({ type: 'SET_CURRENT_FRAME', frame: currentFrame })
-    dispatch({ type: 'SET_KEYFRAME_TWEEN', tween: 'motion' })
-    dispatch({ type: 'STATUS', message: 'Motion added — press Play to watch it move!' })
+    const start = { x: shape.x + shape.width / 2, y: shape.y + shape.height / 2 }
+    const path = [
+      start,
+      { x: start.x + 45, y: start.y - 80 },
+      { x: start.x + 95, y: start.y - 35 },
+    ]
+    dispatch({ type: 'SET_MOTION_PATH', layerId: layer.id, shapeId: shape.id, points: path })
+    dispatch({ type: 'STATUS', message: 'Motion path added — press Play to watch it follow the track!' })
   }
 
   return (

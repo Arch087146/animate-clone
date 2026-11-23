@@ -35,6 +35,7 @@ const toolGroups: { id: ToolId; label: string; shortcut: string }[][] = [
     { id: 'hand', label: 'Hand Tool', shortcut: 'H' },
     { id: 'zoom', label: 'Zoom Tool', shortcut: 'Z' },
     { id: 'bone', label: 'Bone Tool (rigging)', shortcut: 'M' },
+    { id: 'motionPath', label: 'Motion Path Tool', shortcut: 'G' },
   ],
 ]
 

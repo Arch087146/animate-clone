@@ -18,6 +18,8 @@ type DragMode =
   | { kind: 'point'; index: number; origin: Shape; layerId: string }
   | { kind: 'move'; start: Point; origin: Shape; layerId: string }
   | { kind: 'resize'; start: Point; origin: Shape; layerId: string; handle: string }
+  | { kind: 'motionPathDraw'; layerId: string; shapeId: string; points: Point[] }
+  | { kind: 'motionPathEdit'; layerId: string; shapeId: string; points: Point[]; index: number }
   | { kind: 'pan'; start: Point; pan: Point }
 
 const HANDLES = ['nw', 'n', 'ne', 'e', 'se', 's', 'sw', 'w']
@@ -122,6 +124,7 @@ export function Stage({ compact = false }: { compact?: boolean } = {}) {
   const [draftBone, setDraftBone] = useState<Bone | null>(null)
   const [penPoints, setPenPoints] = useState<Point[]>([])
   const [lassoPoints, setLassoPoints] = useState<Point[]>([])
+  const [motionPathDraft, setMotionPathDraft] = useState<Point[] | null>(null)
   const [snapJoint, setSnapJoint] = useState<Point | null>(null)
 
   const toWorld = useCallback((clientX: number, clientY: number): Point => {
@@ -191,39 +194,6 @@ export function Stage({ compact = false }: { compact?: boolean } = {}) {
     }
     if (draftBone) drawBones(ctx, [draftBone], draftBone.id, zoom)
 
-    if (selection.shapeId && selection.layerId) {
-      const layer = project.layers.find((l) => l.id === selection.layerId)
-      const idx = layer ? findKeyframeIndex(layer, currentFrame) : -1
-      const kf = idx >= 0 ? layer!.frames[idx] : null
-      const from = kf?.shapes.find((s) => s.id === selection.shapeId)
-      if (kf && kf.tween !== 'none' && from) {
-        let nextKf: ReturnType<typeof getActiveKeyframe> = null
-        for (let i = idx + 1; i < layer!.frames.length; i++) {
-          if (layer!.frames[i]) { nextKf = layer!.frames[i]; break }
-        }
-        const to = nextKf?.shapes.find((s) => s.id === selection.shapeId)
-        if (to) {
-          const a = { x: from.x + from.width / 2, y: from.y + from.height / 2 }
-          const b = { x: to.x + to.width / 2, y: to.y + to.height / 2 }
-          ctx.save()
-          ctx.strokeStyle = kf.tween === 'shape' ? '#43a047' : '#1473e6'
-          ctx.fillStyle = ctx.strokeStyle
-          ctx.lineWidth = 1.5 / zoom
-          ctx.setLineDash([5 / zoom, 4 / zoom])
-          ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke()
-          ctx.setLineDash([])
-          for (const pt of [a, b]) { ctx.beginPath(); ctx.arc(pt.x, pt.y, 3 / zoom, 0, Math.PI * 2); ctx.fill() }
-          const angle = Math.atan2(b.y - a.y, b.x - a.x)
-          ctx.beginPath()
-          ctx.moveTo(b.x, b.y)
-          ctx.lineTo(b.x - 8 * Math.cos(angle - 0.4) / zoom, b.y - 8 * Math.sin(angle - 0.4) / zoom)
-          ctx.lineTo(b.x - 8 * Math.cos(angle + 0.4) / zoom, b.y - 8 * Math.sin(angle + 0.4) / zoom)
-          ctx.closePath(); ctx.fill()
-          ctx.restore()
-        }
-      }
-    }
-
     const drawGuide = (points: Point[], color: string, closed: boolean) => {
       if (!points.length) return
       ctx.save()
@@ -244,8 +214,60 @@ export function Stage({ compact = false }: { compact?: boolean } = {}) {
       }
       ctx.restore()
     }
+
+    if (selection.shapeId && selection.layerId) {
+      const layer = project.layers.find((l) => l.id === selection.layerId)
+      const idx = layer ? findKeyframeIndex(layer, currentFrame) : -1
+      const kf = idx >= 0 ? layer!.frames[idx] : null
+      const from = kf?.shapes.find((s) => s.id === selection.shapeId)
+      if (kf && kf.tween !== 'none' && from) {
+        const color = kf.tween === 'shape' ? '#43a047' : '#1473e6'
+        const path = kf.motionPaths?.[selection.shapeId]
+        if (path && path.length > 1) {
+          drawGuide(path, color, false)
+          const tip = path[path.length - 1]
+          const prev = path[path.length - 2]
+          const angle = Math.atan2(tip.y - prev.y, tip.x - prev.x)
+          ctx.save()
+          ctx.fillStyle = color
+          ctx.beginPath()
+          ctx.moveTo(tip.x, tip.y)
+          ctx.lineTo(tip.x - 8 * Math.cos(angle - 0.4) / zoom, tip.y - 8 * Math.sin(angle - 0.4) / zoom)
+          ctx.lineTo(tip.x - 8 * Math.cos(angle + 0.4) / zoom, tip.y - 8 * Math.sin(angle + 0.4) / zoom)
+          ctx.closePath(); ctx.fill()
+          ctx.restore()
+        } else {
+          let nextKf: ReturnType<typeof getActiveKeyframe> = null
+          for (let i = idx + 1; i < layer!.frames.length; i++) {
+            if (layer!.frames[i]) { nextKf = layer!.frames[i]; break }
+          }
+          const to = nextKf?.shapes.find((s) => s.id === selection.shapeId)
+          if (to) {
+            const a = { x: from.x + from.width / 2, y: from.y + from.height / 2 }
+            const b = { x: to.x + to.width / 2, y: to.y + to.height / 2 }
+            ctx.save()
+            ctx.strokeStyle = color
+            ctx.fillStyle = color
+            ctx.lineWidth = 1.5 / zoom
+            ctx.setLineDash([5 / zoom, 4 / zoom])
+            ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke()
+            ctx.setLineDash([])
+            for (const pt of [a, b]) { ctx.beginPath(); ctx.arc(pt.x, pt.y, 3 / zoom, 0, Math.PI * 2); ctx.fill() }
+            const angle = Math.atan2(b.y - a.y, b.x - a.x)
+            ctx.beginPath()
+            ctx.moveTo(b.x, b.y)
+            ctx.lineTo(b.x - 8 * Math.cos(angle - 0.4) / zoom, b.y - 8 * Math.sin(angle - 0.4) / zoom)
+            ctx.lineTo(b.x - 8 * Math.cos(angle + 0.4) / zoom, b.y - 8 * Math.sin(angle + 0.4) / zoom)
+            ctx.closePath(); ctx.fill()
+            ctx.restore()
+          }
+        }
+      }
+    }
+
     drawGuide(penPoints, '#1473e6', false)
     drawGuide(lassoPoints, '#e53935', true)
+    if (motionPathDraft) drawGuide(motionPathDraft, '#8e24aa', false)
 
     const selectedLayer = project.layers.find((l) => l.id === selection.layerId)
     const kf = selectedLayer ? getActiveKeyframe(selectedLayer, currentFrame) : null
@@ -254,7 +276,7 @@ export function Stage({ compact = false }: { compact?: boolean } = {}) {
     if (selected && tool === 'subselection' && selected.points?.length) {
       drawGuide(selected.points, '#1473e6', false)
     }
-  }, [project, zoom, currentFrame, state.showGrid, state.onionSkin, state.onionRange, state.onionOpacity, state.showBones, draft, draftBone, selection, penPoints, lassoPoints, tool, snapJoint])
+  }, [project, zoom, currentFrame, state.showGrid, state.onionSkin, state.onionRange, state.onionOpacity, state.showBones, draft, draftBone, selection, penPoints, lassoPoints, motionPathDraft, tool, snapJoint])
 
   useEffect(() => { render() }, [render])
 
@@ -417,6 +439,40 @@ export function Stage({ compact = false }: { compact?: boolean } = {}) {
         }),
       })
       dispatch({ type: 'SET_TOOL', tool: 'selection' })
+      return
+    }
+
+    if (tool === 'motionPath') {
+      const layerId = selection.layerId ?? picked?.layerId ?? project.layers[0]?.id
+      const shapeId = selection.shapeId ?? picked?.shape.id
+      if (!layerId || !shapeId) {
+        dispatch({ type: 'STATUS', message: 'Select an object first, then drag its motion path' })
+        return
+      }
+      const layer = project.layers.find((l) => l.id === layerId)
+      const kf = layer ? getActiveKeyframe(layer, currentFrame) : null
+      const shape = kf?.shapes.find((s) => s.id === shapeId) ?? picked?.shape
+      if (!shape) {
+        dispatch({ type: 'STATUS', message: 'Select an object first, then drag its motion path' })
+        return
+      }
+      if (selection.layerId !== layerId || selection.shapeId !== shapeId) {
+        dispatch({ type: 'SET_SELECTION', selection: { layerId, shapeId, boneId: null } })
+      }
+      const existing = kf?.motionPaths?.[shapeId]
+      if (existing?.length) {
+        const handleIndex = existing.findIndex((pt) => Math.hypot(pt.x - p.x, pt.y - p.y) <= 8 / zoom)
+        if (handleIndex >= 0) {
+          const points = existing.map((pt) => ({ ...pt }))
+          dragRef.current = { kind: 'motionPathEdit', layerId, shapeId, points, index: handleIndex }
+          setMotionPathDraft(points)
+          return
+        }
+      }
+      const start = existing?.length ? { ...existing[0] } : { x: shape.x + shape.width / 2, y: shape.y + shape.height / 2 }
+      const points = [start, p]
+      dragRef.current = { kind: 'motionPathDraw', layerId, shapeId, points }
+      setMotionPathDraft(points)
       return
     }
 
@@ -667,6 +723,16 @@ export function Stage({ compact = false }: { compact?: boolean } = {}) {
         .filter((s) => s.boneId && movedIds.has(s.boneId))
         .map((s) => ({ id: s.id, patch: translateShape(s, dx, dy) }))
       dispatch({ type: 'SET_BONES', bones, shapePatches })
+    } else if (drag.kind === 'motionPathDraw') {
+      const last = drag.points[drag.points.length - 1]
+      if (Math.hypot(p.x - last.x, p.y - last.y) < 3 / zoom) return
+      const points = [...drag.points, p]
+      dragRef.current = { ...drag, points }
+      setMotionPathDraft(points)
+    } else if (drag.kind === 'motionPathEdit') {
+      const points = drag.points.map((pt, i) => i === drag.index ? p : pt)
+      dragRef.current = { ...drag, points }
+      setMotionPathDraft(points)
     } else if (drag.kind === 'lasso') {
       const points = [...drag.points, p]
       dragRef.current = { kind: 'lasso', points }
@@ -727,6 +793,13 @@ export function Stage({ compact = false }: { compact?: boolean } = {}) {
         points: smoothPoints(drag.points, settings.smoothing), closed: false,
       }) })
     }
+    if (drag.kind === 'motionPathDraw' && drag.points.length > 1) {
+      dispatch({ type: 'SET_MOTION_PATH', layerId: drag.layerId, shapeId: drag.shapeId, points: drag.points })
+    }
+    if (drag.kind === 'motionPathEdit' && drag.points.length > 1) {
+      dispatch({ type: 'UPDATE_MOTION_PATH', layerId: drag.layerId, shapeId: drag.shapeId, points: drag.points })
+    }
+    if (drag.kind === 'motionPathDraw' || drag.kind === 'motionPathEdit') setMotionPathDraft(null)
     if (drag.kind === 'erase') dispatch({ type: 'END_TRANSFORM' })
     if (drag.kind === 'lasso' && drag.points.length > 2) {
       let found: { shape: Shape; layerId: string } | null = null
@@ -767,7 +840,7 @@ export function Stage({ compact = false }: { compact?: boolean } = {}) {
 
   useEffect(() => {
     const clear = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') { setPenPoints([]); setLassoPoints([]) }
+      if (e.key === 'Escape') { setPenPoints([]); setLassoPoints([]); setMotionPathDraft(null) }
     }
     window.addEventListener('keydown', clear)
     return () => window.removeEventListener('keydown', clear)

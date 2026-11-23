@@ -4,6 +4,7 @@ import { BoneOptions } from './BoneOptions'
 import { Icon } from '../Icon'
 import { useStore } from '../store'
 import type { ToolSettings } from '../types'
+import { getActiveKeyframe } from '../utils'
 
 function Slider({
   label, value, min, max, step = 1, suffix = '', onChange,
@@ -103,6 +104,26 @@ export function ToolOptions() {
               <button className={`tool-opt-toggle ${s.italic ? 'active' : ''}`} onClick={() => set('italic', !s.italic)}><i>I</i></button>
               <label className="tool-opt-color"><span>Color</span><input type="color" value={state.fillColor.startsWith('#') ? state.fillColor : '#000000'} onChange={(e) => dispatch({ type: 'SET_FILL', color: e.target.value })} /></label>
             </>
+          : tool === 'motionPath'
+            ? <>
+                <Icon name="motionPath" size={18} />
+                <Slider label="Frames" value={s.motionPathDuration} min={5} max={120} onChange={(v) => set('motionPathDuration', v)} />
+                <label className="tool-option-check"><input type="checkbox" checked={s.motionPathOrient} onChange={() => set('motionPathOrient', !s.motionPathOrient)} /> Orient to path</label>
+                {(() => {
+                  const layer = state.project.layers.find((l) => l.id === state.selection.layerId)
+                  const kf = layer ? getActiveKeyframe(layer, state.currentFrame) : null
+                  const shapeId = state.selection.shapeId
+                  if (!layer || !shapeId || !kf?.motionPaths?.[shapeId]) return null
+                  return (
+                    <div className="tool-opt-buttons">
+                      <button title="Remove motion path" onClick={() => dispatch({ type: 'REMOVE_MOTION_PATH', layerId: layer.id, shapeId })}>
+                        <Icon name="trash" size={13} />
+                      </button>
+                    </div>
+                  )
+                })()}
+                <span className="tool-opt-note">Drag on the stage to draw the track. Drag a square handle to reshape it.</span>
+              </>
           : tool === 'bone'
             ? <BoneOptions compact />
             : tool === 'selection'

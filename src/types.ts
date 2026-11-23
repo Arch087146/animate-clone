@@ -19,6 +19,7 @@ export type ToolId =
   | 'hand'
   | 'zoom'
   | 'bone'
+  | 'motionPath'
 
 export type ShapeType =
   | 'rectangle'
@@ -131,6 +132,10 @@ export interface Keyframe {
   tween: 'none' | 'motion' | 'shape'
   ease: number
   label?: string
+  /** Center-point tracks for tweened shapes, keyed by shape ID. */
+  motionPaths?: Record<string, Point[]>
+  /** Shapes that rotate to face the direction of their motion path. */
+  motionPathOrient?: Record<string, boolean>
 }
 
 export interface Layer {
@@ -180,6 +185,8 @@ export interface ToolSettings {
   fontFamily: string
   bold: boolean
   italic: boolean
+  motionPathDuration: number
+  motionPathOrient: boolean
 }
 
 export const createToolSettings = (): ToolSettings => ({
@@ -198,6 +205,8 @@ export const createToolSettings = (): ToolSettings => ({
   fontFamily: 'Arial',
   bold: true,
   italic: false,
+  motionPathDuration: 30,
+  motionPathOrient: false,
 })
 
 export interface AppState {
@@ -231,6 +240,7 @@ export interface AppState {
   publishFormat: string
   showTimeline: boolean
   clipboard: Shape[]
+  frameClipboard: Keyframe | null
   activePanel: string
   selectedFrames: number[]
   statusMessage: string

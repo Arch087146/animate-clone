@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { Icon } from '../Icon'
 import { useStore } from '../store'
-import { findKeyframeIndex, getActiveKeyframe, getNextKeyframe } from '../utils'
+import { findKeyframeIndex, getActiveKeyframe } from '../utils'
 
 const CELL = 16
 const LABEL_W = 174
@@ -162,6 +162,9 @@ export function Timeline() {
           <button className="mini-btn" title="Insert frame (F5)" onClick={() => dispatch({ type: 'INSERT_FRAME' })}><Icon name="plus" size={13} /></button>
           <button className="mini-btn" title="Insert keyframe (F6)" onClick={() => dispatch({ type: 'INSERT_KEYFRAME' })}><Icon name="keyframe" size={13} /></button>
           <button className="mini-btn" title="Insert blank keyframe (F7)" onClick={() => dispatch({ type: 'INSERT_KEYFRAME', blank: true })}><Icon name="blankKeyframe" size={13} /></button>
+          <button className="mini-btn" title="Copy frame" onClick={() => dispatch({ type: 'COPY_FRAME' })}><Icon name="copy" size={13} /></button>
+          <button className="mini-btn" title="Paste frame" onClick={() => dispatch({ type: 'PASTE_FRAME' })}><Icon name="paste" size={13} /></button>
+          <button className="mini-btn" title="New frame like previous" onClick={() => dispatch({ type: 'DUPLICATE_FRAME' })}><Icon name="duplicateFrame" size={13} /></button>
           {visibleTools.pose && <button
             className="mini-btn pose-btn"
             title="Add pose keyframe — captures the current rig as a motion keyframe"
@@ -296,17 +299,24 @@ export function Timeline() {
                   setContextMenu({ x: e.clientX, y: e.clientY, frame })
                 }}>
                   {[...project.layers].reverse().map((layer) => {
-                    const tweenSpans = visibleTools.tweens ? layer.frames.map((kf, f) => {
-                      if (!kf || kf.tween === 'none') return null
-                      const next = getNextKeyframe(layer, f)
-                      const end = next ? next.start : project.totalFrames
-                      return end > f ? { f, kf, left: f * CELL, width: (end - f) * CELL } : null
-                    }).filter((span): span is NonNullable<typeof span> => !!span) : []
+                    const keyframeFrames = layer.frames
+                      .map((kf, index) => (kf ? index : -1))
+                      .filter((index) => index >= 0)
+                    const tweenSpans = visibleTools.tweens ? keyframeFrames.flatMap((start, index) => {
+                      const kf = layer.frames[start]!
+                      if (kf.tween === 'none') return []
+                      const previous = index > 0 ? layer.frames[keyframeFrames[index - 1]] : null
+                      // A tweened keyframe immediately after another tween is the
+                      // endpoint of that span, not the start of a second bar.
+                      if (previous && previous.tween !== 'none') return []
+                      const next = keyframeFrames[index + 1] ?? project.totalFrames
+                      return next > start ? [{ f: start, kf, left: start * CELL, width: (next - start) * CELL }] : []
+                    }) : []
                     return (
                     <div key={layer.id} className={`frame-row ${state.selection.layerId === layer.id ? 'selected' : ''} ${!layer.visible ? 'hidden-layer' : ''} ${layer.outline ? 'outline-layer' : ''}`} style={{ width: gridWidth, height: rowHeight }}>
                       {tweenSpans.map((span) => (
                         <div key={`tween-${span.f}`} className={`tween-span ${span.kf.tween}`} style={{ left: span.left, width: span.width }} title={`${span.kf.tween} tween`}>
-                          <span className="tween-arrow">›</span>
+                          <span className="tween-arrow">→</span>
                         </div>
                       ))}
                       {layer.frames.map((kf, f) => {
@@ -380,6 +390,10 @@ export function Timeline() {
             { label: 'Insert Keyframe', action: () => dispatch({ type: 'INSERT_KEYFRAME', frame: contextMenu.frame }) },
             { label: 'Insert Blank Keyframe', action: () => dispatch({ type: 'INSERT_KEYFRAME', blank: true, frame: contextMenu.frame }) },
             { label: 'Remove Keyframe', action: () => dispatch({ type: 'REMOVE_KEYFRAME', frame: contextMenu.frame }) },
+            { separator: true },
+            { label: 'Copy Frame', action: () => dispatch({ type: 'COPY_FRAME' }) },
+            { label: 'Paste Frame', action: () => dispatch({ type: 'PASTE_FRAME' }) },
+            { label: 'Duplicate Frame', action: () => dispatch({ type: 'DUPLICATE_FRAME' }) },
             { separator: true },
             { label: 'Create Motion Tween', action: () => dispatch({ type: 'SET_KEYFRAME_TWEEN', tween: 'motion' }) },
             { label: 'Create Shape Tween', action: () => dispatch({ type: 'SET_KEYFRAME_TWEEN', tween: 'shape' }) },

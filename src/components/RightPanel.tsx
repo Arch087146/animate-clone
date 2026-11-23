@@ -428,6 +428,12 @@ export function RightPanel() {
                   <button onClick={() => dispatch({ type: 'SET_KEYFRAME_TWEEN', tween: 'shape' })}>Shape Tween</button>
                   {kf?.tween && kf.tween !== 'none' && <button className="danger" onClick={() => dispatch({ type: 'SET_KEYFRAME_TWEEN', tween: 'none' })}>Remove Tween</button>}
                 </div>
+                <div className="prop-btn-row">
+                  <button disabled={!shape} title={shape ? 'Draw a track for the selected object' : 'Select an object first'} onClick={() => dispatch({ type: 'SET_TOOL', tool: 'motionPath' })}><Icon name="motionPath" size={13} /> Draw Motion Path</button>
+                  {shape && kf?.motionPaths?.[shape.id] && layer && (
+                    <button className="danger" onClick={() => dispatch({ type: 'REMOVE_MOTION_PATH', layerId: layer.id, shapeId: shape.id })}>Remove Path</button>
+                  )}
+                </div>
                 <div className="empty-hint small">Add a second keyframe later on the timeline to create animation.</div>
               </>
             ))}

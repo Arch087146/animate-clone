@@ -54,6 +54,8 @@ const paths: Record<string, ReactNode> = {
   magnet: <><path d="M3 1.5v7a5 5 0 0010 0v-7h-3v7a2 2 0 01-4 0v-7z" /><path d="M3 4.5h3M10 4.5h3" /></>,
   settings: <><circle cx="8" cy="8" r="2.2" /><path d="M8 1v2M8 13v2M1 8h2M13 8h2M3 3l1.5 1.5M11.5 11.5L13 13M13 3l-1.5 1.5M4.5 11.5L3 13" /></>,
   copy: <><rect x="5" y="5" width="9" height="9" /><path d="M11 5V2H2v9h3" /></>,
+  paste: <><rect x="4" y="4" width="8" height="10" rx="1" /><path d="M6 4V2h4v2" /><path d="M6 8h4M6 11h4" /></>,
+  duplicateFrame: <><rect x="2" y="5" width="8" height="7" /><path d="M5 5V3h8v7h-2" /><path d="M9 8.5h3M10.5 7v3" /></>,
   link: <><path d="M6.5 9.5a3 3 0 004.2 0l2-2a3 3 0 00-4.2-4.2l-1 1" /><path d="M9.5 6.5a3 3 0 00-4.2 0l-2 2a3 3 0 004.2 4.2l1-1" /></>,
   center: <><path d="M8 1v14M1 8h14" /><rect x="5" y="5" width="6" height="6" /></>,
   centerFrame: <><path d="M8 1.5v13M1.5 8h13" /><path d="M5 4L8 1.5 11 4M5 12l3 2.5 3-2.5M4 5L1.5 8 4 11M12 5l2.5 3L12 11" /></>,

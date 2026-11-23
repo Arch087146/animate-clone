@@ -18,7 +18,7 @@ import type { ToolId } from './types'
 const toolKeys: Record<string, ToolId> = {
   v: 'selection', a: 'subselection', l: 'lasso', p: 'pen', t: 'text', n: 'line',
   r: 'rectangle', o: 'oval', y: 'pencil', b: 'brush', e: 'eraser', s: 'inkBottle',
-  k: 'paintBucket', i: 'eyedropper', h: 'hand', z: 'zoom', m: 'bone',
+  k: 'paintBucket', i: 'eyedropper', h: 'hand', z: 'zoom', m: 'bone', g: 'motionPath',
 }
 
 /** Brief, non-blocking feedback message — replaces the old status bar. */

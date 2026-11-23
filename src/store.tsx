@@ -79,10 +79,16 @@ export type Action =
   | { type: 'REMOVE_KEYFRAME'; frame?: number }
   | { type: 'INSERT_FRAME'; frame?: number }
   | { type: 'REMOVE_FRAME'; frame?: number }
+  | { type: 'COPY_FRAME' }
+  | { type: 'PASTE_FRAME' }
+  | { type: 'DUPLICATE_FRAME' }
   | { type: 'CLEAR_KEYFRAMES' }
   | { type: 'SET_KEYFRAME_TWEEN'; tween: Keyframe['tween'] }
   | { type: 'SET_KEYFRAME_EASE'; ease: number }
   | { type: 'SET_KEYFRAME_LABEL'; label: string }
+  | { type: 'SET_MOTION_PATH'; layerId: string; shapeId: string; points: Point[] }
+  | { type: 'UPDATE_MOTION_PATH'; layerId: string; shapeId: string; points: Point[] }
+  | { type: 'REMOVE_MOTION_PATH'; layerId: string; shapeId: string }
   | { type: 'SET_PROJECT_PROP'; prop: keyof Project; value: string | number }
   | { type: 'LOAD_PROJECT'; project: Project }
   | { type: 'NEW_PROJECT' }
@@ -128,6 +134,7 @@ const initialState: AppState = {
   onionOpacity: 0.16,
   onionKeyframesOnly: false,
   clipboard: [],
+  frameClipboard: null,
   activePanel: 'properties',
   selectedFrames: [],
   statusMessage: 'Ready',
@@ -138,6 +145,76 @@ const cloneShapes = (shapes: Shape[]): Shape[] =>
   shapes.map((s) => ({ ...s, points: s.points?.map((p) => ({ ...p })) }))
 
 const cloneBones = (bones: Bone[] = []): Bone[] => bones.map((b) => ({ ...b }))
+
+const shapeCenter = (shape: Shape): Point => ({ x: shape.x + shape.width / 2, y: shape.y + shape.height / 2 })
+
+const withShapeCenter = (shape: Shape, center: Point): Shape => {
+  const current = shapeCenter(shape)
+  const dx = center.x - current.x
+  const dy = center.y - current.y
+  return {
+    ...shape,
+    x: shape.x + dx,
+    y: shape.y + dy,
+    points: shape.points?.map((p) => ({ x: p.x + dx, y: p.y + dy })),
+  }
+}
+
+const normalizeMotionPath = (points: Point[], start: Point, end: Point): Point[] => {
+  const clean = points
+    .map((p) => ({ x: Math.round(p.x * 100) / 100, y: Math.round(p.y * 100) / 100 }))
+    .filter((p, i, arr) => i === 0 || Math.hypot(p.x - arr[i - 1].x, p.y - arr[i - 1].y) > 0.5)
+  if (clean.length < 2) clean.push({ ...start }, { ...end })
+  if (Math.hypot(clean[0].x - start.x, clean[0].y - start.y) > 0.5) clean.unshift({ ...start })
+  else clean[0] = { ...start }
+  const last = clean[clean.length - 1]
+  if (Math.hypot(last.x - end.x, last.y - end.y) > 0.5) clean.push({ ...end })
+  else clean[clean.length - 1] = { ...end }
+  return clean
+}
+
+const cloneMotionPaths = (
+  paths: Keyframe['motionPaths'],
+  shapeIds: Map<string, string>,
+): Keyframe['motionPaths'] => {
+  if (!paths) return undefined
+  const result: NonNullable<Keyframe['motionPaths']> = {}
+  Object.entries(paths).forEach(([id, points]) => {
+    result[shapeIds.get(id) ?? id] = points.map((p) => ({ ...p }))
+  })
+  return result
+}
+
+const cloneFrameKeyframe = (source: Keyframe | null, frame: number): Keyframe => {
+  const boneIds = new Map<string, string>()
+  const bones = cloneBones(source?.bones ?? []).map((bone) => {
+    const id = uid('bone')
+    boneIds.set(bone.id, id)
+    return { ...bone, id }
+  }).map((bone) => ({ ...bone, parentId: bone.parentId ? boneIds.get(bone.parentId) ?? null : null }))
+  const shapeIds = new Map<string, string>()
+  const shapes = cloneShapes(source?.shapes ?? []).map((shape) => {
+    const id = uid('shape')
+    shapeIds.set(shape.id, id)
+    return {
+      ...shape,
+      id,
+      boneId: shape.boneId ? boneIds.get(shape.boneId) ?? null : null,
+    }
+  })
+  const keyframe = createKeyframe(frame, shapes, bones)
+  keyframe.tween = source?.tween ?? 'none'
+  keyframe.ease = source?.ease ?? 0
+  keyframe.label = source?.label
+  const paths = cloneMotionPaths(source?.motionPaths, shapeIds)
+  if (paths) keyframe.motionPaths = paths
+  if (source?.motionPathOrient) {
+    const orient: NonNullable<Keyframe['motionPathOrient']> = {}
+    Object.entries(source.motionPathOrient).forEach(([id, value]) => { orient[shapeIds.get(id) ?? id] = value })
+    keyframe.motionPathOrient = orient
+  }
+  return keyframe
+}
 
 function ensureKeyframe(project: Project, layer: Layer, frame: number): { layer: Layer; keyframe: Keyframe } | null {
   if (layer.locked || frame < 0 || frame >= project.totalFrames) return null
@@ -151,6 +228,10 @@ function ensureKeyframe(project: Project, layer: Layer, frame: number): { layer:
     keyframe.tween = previous.tween
     keyframe.ease = previous.ease
     keyframe.label = previous.label
+    if (previous.motionPaths) {
+      keyframe.motionPaths = Object.fromEntries(Object.entries(previous.motionPaths).map(([id, pts]) => [id, pts.map((p) => ({ ...p }))]))
+    }
+    if (previous.motionPathOrient) keyframe.motionPathOrient = { ...previous.motionPathOrient }
   }
   const newFrames = [...layer.frames]
   if (previous) {
@@ -637,16 +718,29 @@ function reducer(store: Store, action: Action): Store {
         ...source,
         id: uid('layer'),
         name: `${source.name} copy`,
-        frames: source.frames.map((f) =>
-          f
-            ? {
-                ...f,
-                id: uid('kf'),
-                shapes: cloneShapes(f.shapes).map((s) => ({ ...s, id: uid('shape') })),
-                bones: cloneBones(f.bones),
-              }
-            : null,
-        ),
+        frames: source.frames.map((f) => {
+          if (!f) return null
+          const shapeIds = new Map<string, string>()
+          const shapes = cloneShapes(f.shapes).map((s) => {
+            const id = uid('shape')
+            shapeIds.set(s.id, id)
+            return { ...s, id }
+          })
+          const copy: Keyframe = {
+            ...f,
+            id: uid('kf'),
+            shapes,
+            bones: cloneBones(f.bones),
+          }
+          const paths = cloneMotionPaths(f.motionPaths, shapeIds)
+          if (paths) copy.motionPaths = paths
+          if (f.motionPathOrient) {
+            const orient: NonNullable<Keyframe['motionPathOrient']> = {}
+            Object.entries(f.motionPathOrient).forEach(([id, value]) => { orient[shapeIds.get(id) ?? id] = value })
+            copy.motionPathOrient = orient
+          }
+          return copy
+        }),
       }
       const layers = [...p.layers]
       layers.splice(index + 1, 0, copy)
@@ -676,6 +770,10 @@ function reducer(store: Store, action: Action): Store {
         keyframe.tween = action.blank ? 'none' : previous?.tween ?? 'none'
         keyframe.ease = previous?.ease ?? 0
         keyframe.duration = Math.max(1, nextStart - frame)
+        if (!action.blank && previous?.motionPaths) {
+          keyframe.motionPaths = Object.fromEntries(Object.entries(previous.motionPaths).map(([id, pts]) => [id, pts.map((p) => ({ ...p }))]))
+          keyframe.motionPathOrient = previous.motionPathOrient ? { ...previous.motionPathOrient } : undefined
+        }
         frames[frame] = keyframe
         return mapLayer(project, layer.id, (l) => ({ ...l, frames }))
       }, `Inserted ${action.blank ? 'blank keyframe' : 'keyframe'} at ${frame + 1}`)
@@ -737,6 +835,80 @@ function reducer(store: Store, action: Action): Store {
       }, `Removed frame at ${frame + 1}`))
     }
 
+    case 'COPY_FRAME': {
+      const layerId = state.selection.layerId ?? p.layers[0]?.id
+      const layer = p.layers.find((l) => l.id === layerId)
+      const idx = layer ? findKeyframeIndex(layer, state.currentFrame) : -1
+      const source = idx >= 0 && layer ? layer.frames[idx] : null
+      return {
+        ...store,
+        state: { ...state, frameClipboard: cloneFrameKeyframe(source, 0), statusMessage: `Copied frame ${state.currentFrame + 1}` },
+      }
+    }
+
+    case 'PASTE_FRAME': {
+      const clip = state.frameClipboard
+      if (!clip) return store
+      const layerId = state.selection.layerId ?? p.layers[0]?.id
+      const layer = p.layers.find((l) => l.id === layerId)
+      if (!layer || layer.locked) return store
+      const frame = state.currentFrame
+      const next = mutate(store, (project) => {
+        const target = project.layers.find((l) => l.id === layerId)
+        if (!target || target.locked) return project
+        const frames = [...target.frames]
+        const idx = findKeyframeIndex(target, frame)
+        const previous = idx >= 0 ? frames[idx] : null
+        if (previous && previous.start < frame) {
+          frames[previous.start] = { ...previous, duration: Math.max(1, frame - previous.start), tween: 'none' }
+        }
+        let nextStart = project.totalFrames
+        for (let i = frame + 1; i < frames.length; i++) {
+          if (frames[i]) { nextStart = i; break }
+        }
+        const pasted = cloneFrameKeyframe(clip, frame)
+        pasted.duration = Math.max(1, nextStart - frame)
+        frames[frame] = pasted
+        return mapLayer(project, layerId, (l) => ({ ...l, frames }))
+      }, `Pasted frame at ${frame + 1}`)
+      if (next.state.project === p) return next
+      return { ...next, state: { ...next.state, selection: { layerId, shapeId: null, boneId: null } } }
+    }
+
+    case 'DUPLICATE_FRAME': {
+      const layerId = state.selection.layerId ?? p.layers[0]?.id
+      const layer = p.layers.find((l) => l.id === layerId)
+      if (!layer || layer.locked) return store
+      const idx = findKeyframeIndex(layer, state.currentFrame)
+      const source = idx >= 0 ? layer.frames[idx] : null
+      const frame = state.currentFrame + 1
+      const next = mutate(store, (project) => {
+        let working = project
+        if (frame >= working.totalFrames) working = resizeFrames(working, frame + 1)
+        const target = working.layers.find((l) => l.id === layerId)
+        if (!target || target.locked) return project
+        const frames = [...target.frames]
+        const prevIdx = findKeyframeIndex(target, frame)
+        const previous = prevIdx >= 0 ? frames[prevIdx] : null
+        if (previous && previous.start < frame) {
+          frames[previous.start] = { ...previous, duration: Math.max(1, frame - previous.start), tween: 'none' }
+        }
+        let nextStart = working.totalFrames
+        for (let i = frame + 1; i < frames.length; i++) {
+          if (frames[i]) { nextStart = i; break }
+        }
+        const copy = cloneFrameKeyframe(source, frame)
+        copy.duration = Math.max(1, nextStart - frame)
+        frames[frame] = copy
+        return mapLayer(working, layerId, (l) => ({ ...l, frames }))
+      }, `Duplicated frame ${state.currentFrame + 1}`)
+      if (next.state.project === p) return next
+      return {
+        ...next,
+        state: { ...next.state, currentFrame: frame, selection: { layerId, shapeId: null, boneId: null } },
+      }
+    }
+
     case 'CLEAR_KEYFRAMES':
       return withClampedFrame(mutate(store, (project) => ({
         ...project,
@@ -765,6 +937,118 @@ function reducer(store: Store, action: Action): Store {
         }
         return mapLayer(project, layer.id, (l) => ({ ...l, frames }))
       })
+
+    case 'SET_MOTION_PATH': {
+      const { layerId, shapeId, points } = action
+      if (points.length < 2) return store
+      const duration = Math.max(2, Math.round(state.toolSettings.motionPathDuration || 30))
+      const result = mutate(store, (project) => {
+        const sourceLayer = project.layers.find((l) => l.id === layerId)
+        if (!sourceLayer || sourceLayer.locked) return project
+        const idx = findKeyframeIndex(sourceLayer, state.currentFrame)
+        if (idx < 0) return project
+        const sourceKf = sourceLayer.frames[idx]!
+        const sourceShape = sourceKf.shapes.find((s) => s.id === shapeId)
+        if (!sourceShape) return project
+
+        let working = project
+        let frames = [...sourceLayer.frames]
+        const startCenter = shapeCenter(sourceShape)
+        let endFrame = -1
+        for (let i = idx + 1; i < frames.length; i++) {
+          if (frames[i]) { endFrame = i; break }
+        }
+        if (endFrame <= idx) {
+          endFrame = idx + duration
+          if (endFrame >= working.totalFrames) {
+            working = resizeFrames(working, endFrame + 1)
+            frames = [...working.layers.find((l) => l.id === layerId)!.frames]
+          }
+        }
+
+        const endKf = frames[endFrame]
+        const endShape = endKf?.shapes.find((s) => s.id === shapeId)
+        const endCenter = endShape ? shapeCenter(endShape) : points[points.length - 1]
+        const path = normalizeMotionPath(points, startCenter, endCenter)
+        const endPoint = path[path.length - 1]
+
+        if (endShape && endKf) {
+          frames[endFrame] = {
+            ...endKf,
+            shapes: endKf.shapes.map((s) => s.id === shapeId ? withShapeCenter(s, endPoint) : s),
+          }
+        } else if (endKf) {
+          // Keep the existing endpoint artwork/bones and append the newly
+          // tracked shape instead of replacing the whole keyframe.
+          const appended = withShapeCenter(cloneShapes([sourceShape])[0], endPoint)
+          frames[endFrame] = {
+            ...endKf,
+            shapes: [...cloneShapes(endKf.shapes), appended],
+            bones: cloneBones(endKf.bones),
+          }
+        } else {
+          const endShapes = sourceKf.shapes.map((s) =>
+            withShapeCenter(cloneShapes([s])[0], s.id === shapeId ? endPoint : shapeCenter(s)))
+          const newEnd = createKeyframe(endFrame, endShapes, cloneBones(sourceKf.bones))
+          newEnd.duration = Math.max(1, working.totalFrames - endFrame)
+          frames[endFrame] = newEnd
+        }
+
+        const orient = { ...(sourceKf.motionPathOrient ?? {}) }
+        orient[shapeId] = state.toolSettings.motionPathOrient
+        frames[idx] = {
+          ...sourceKf,
+          tween: 'motion',
+          duration: Math.max(1, endFrame - idx),
+          motionPaths: { ...(sourceKf.motionPaths ?? {}), [shapeId]: path },
+          motionPathOrient: orient,
+        }
+        return mapLayer(working, layerId, (l) => ({ ...l, frames }))
+      }, 'Motion path added')
+      return withClampedFrame(result)
+    }
+
+    case 'UPDATE_MOTION_PATH':
+      return mutate(store, (project) => {
+        const layer = project.layers.find((l) => l.id === action.layerId)
+        if (!layer || layer.locked) return project
+        const idx = findKeyframeIndex(layer, state.currentFrame)
+        if (idx < 0) return project
+        const frames = [...layer.frames]
+        const kf = frames[idx]!
+        if (!kf.motionPaths?.[action.shapeId]) return project
+        frames[idx] = {
+          ...kf,
+          motionPaths: {
+            ...kf.motionPaths,
+            [action.shapeId]: action.points.map((p) => ({ ...p })),
+          },
+        }
+        return mapLayer(project, layer.id, (l) => ({ ...l, frames }))
+      })
+
+    case 'REMOVE_MOTION_PATH':
+      return mutate(store, (project) => {
+        const layer = project.layers.find((l) => l.id === action.layerId)
+        if (!layer || layer.locked) return project
+        const idx = findKeyframeIndex(layer, state.currentFrame)
+        if (idx < 0) return project
+        const frames = [...layer.frames]
+        const kf = frames[idx]!
+        if (!kf.motionPaths?.[action.shapeId]) return project
+        const paths = { ...kf.motionPaths }
+        delete paths[action.shapeId]
+        const orient = { ...(kf.motionPathOrient ?? {}) }
+        delete orient[action.shapeId]
+        const remaining = Object.keys(paths).length
+        frames[idx] = {
+          ...kf,
+          tween: remaining ? kf.tween : 'none',
+          motionPaths: remaining ? paths : undefined,
+          motionPathOrient: remaining ? orient : undefined,
+        }
+        return mapLayer(project, layer.id, (l) => ({ ...l, frames }))
+      }, 'Motion path removed')
 
     case 'SET_PROJECT_PROP':
       return withClampedFrame(mutate(store, (project) => {
