@@ -180,6 +180,26 @@ input, select { user-select: text; }
 .prop-btn-row button.danger { color: var(--danger); }
 .wide-btn { width: 100%; justify-content: center; margin-top: 6px; }
 .notice-bar { background: #fff7d6; border-bottom: 1px solid #e5d28c; padding: 6px 8px; color: #6b5a00; }
+.pi-context-tabs { display: grid; grid-template-columns: repeat(4, 1fr); background: linear-gradient(#efefef, #e3e3e3); border-bottom: 1px solid #b4b4b4; }
+.pi-context-tab { height: 32px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; padding: 0; border: 0; border-right: 1px solid #c8c8c8; background: transparent; color: #666; font-size: 9px; }
+.pi-context-tab:last-child { border-right: 0; }
+.pi-context-tab svg { color: #777; }
+.pi-context-tab:hover { background: #e7e7e7; }
+.pi-context-tab.active { background: var(--panel); color: #111; font-weight: 600; box-shadow: inset 0 -2px var(--accent); }
+.pi-context-tab.active svg { color: var(--accent); }
+.pi-quick-actions { display: flex; gap: 3px; padding: 5px 7px; border-bottom: 1px solid #d2d2d2; background: #ededed; }
+.pi-quick-actions button { width: 28px; height: 22px; display: grid; place-items: center; padding: 0; background: #f8f8f8; border: 1px solid #aaa; border-radius: 2px; color: #555; }
+.pi-quick-actions button:hover { background: #fff; border-color: #888; color: #111; }
+.pi-quick-actions button.danger:hover { color: var(--danger); border-color: var(--danger); }
+.pi-tool-head { display: flex; align-items: center; gap: 8px; padding-bottom: 3px; }
+.pi-tool-icon { width: 34px; height: 34px; flex: 0 0 34px; display: grid; place-items: center; background: linear-gradient(#fff, #eee); border: 1px solid #aaa; color: var(--accent); }
+.pi-tool-head b { display: block; font-size: 11px; }
+.pi-tool-head small { display: block; color: #888; font-size: 9px; letter-spacing: .04em; text-transform: uppercase; }
+.pi-align-row { display: grid; grid-template-columns: repeat(6, 1fr); gap: 2px; padding: 2px; background: #e9e9e9; border: 1px solid #c4c4c4; }
+.pi-align-row button { height: 20px; display: grid; place-items: center; padding: 0; background: #fafafa; border: 1px solid #bbb; color: #555; }
+.pi-align-row button:hover { background: var(--accent-soft); color: var(--accent); }
+.pi-empty { padding: 24px 16px; display: flex; flex-direction: column; align-items: center; gap: 8px; color: #888; font-size: 10px; line-height: 1.5; text-align: center; }
+.pi-empty svg { color: #b5b5b5; }
 .panel-subhead { padding: 6px 8px 3px; background: #e5e5e5; border-bottom: 1px solid #ccc; font-weight: 600; color: #555; }
 .library-toolbar { display: flex; align-items: center; gap: 2px; padding: 4px; border-bottom: 1px solid #ccc; }
 .library-search { flex: 1; min-width: 0; height: 20px; border: 1px solid #aaa; padding: 0 4px; background: #fff; }
@@ -369,6 +389,23 @@ html:has(.app-shell.dark) { background: #1c1c1c; }
 .app-shell.dark .prop-btn-row button, .app-shell.dark .wide-btn { background: #343434; border-color: #565656; color: #ddd; }
 .app-shell.dark .prop-btn-row button:hover, .app-shell.dark .wide-btn:hover { background: #454545; }
 .app-shell.dark .notice-bar { background: #3b3520; border-bottom-color: #5d5229; color: #e8d78a; }
+.app-shell.dark .pi-context-tabs { background: linear-gradient(#343434, #2d2d2d); border-bottom-color: #4a4a4a; }
+.app-shell.dark .pi-context-tab { color: #aaa; border-right-color: #454545; }
+.app-shell.dark .pi-context-tab svg { color: #999; }
+.app-shell.dark .pi-context-tab:hover { background: #3a3a3a; }
+.app-shell.dark .pi-context-tab.active { background: var(--panel); color: #fff; }
+.app-shell.dark .pi-context-tab.active svg { color: #4c9aff; }
+.app-shell.dark .pi-quick-actions { background: #2f2f2f; border-bottom-color: #454545; }
+.app-shell.dark .pi-quick-actions button { background: #343434; border-color: #565656; color: #bbb; }
+.app-shell.dark .pi-quick-actions button:hover { background: #454545; color: #fff; }
+.app-shell.dark .pi-quick-actions button.danger:hover { color: #ff7b72; border-color: #ff7b72; }
+.app-shell.dark .pi-tool-icon { background: linear-gradient(#3a3a3a, #303030); border-color: #565656; }
+.app-shell.dark .pi-tool-head small { color: #888; }
+.app-shell.dark .pi-align-row { background: #2f2f2f; border-color: #4a4a4a; }
+.app-shell.dark .pi-align-row button { background: #343434; border-color: #565656; color: #bbb; }
+.app-shell.dark .pi-align-row button:hover { background: #1d3a63; color: #a8d1ff; }
+.app-shell.dark .pi-empty { color: #888; }
+.app-shell.dark .pi-empty svg { color: #666; }
 .app-shell.dark .panel-subhead { background: #333; border-bottom-color: #474747; color: #bbb; }
 .app-shell.dark .library-toolbar, .app-shell.dark .library-footer { border-color: #474747; }
 .app-shell.dark .library-search { background: #1f1f1f; border-color: #565656; color: #ddd; }

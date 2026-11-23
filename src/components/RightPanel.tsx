@@ -17,7 +17,7 @@ export function RightPanel() {
   const { state, dispatch } = useStore()
   const { project, selection, currentFrame } = state
   const [openSections, setOpenSections] = useState<Record<string, boolean>>({
-    document: true, position: true, fill: true, appearance: true, tween: true, frame: true, bone: true, rig: true,
+    tool: true, document: true, position: true, fill: true, appearance: true, piTransform: true, tween: true, frame: true, bone: true, rig: true,
   })
   const [showMore, setShowMore] = useState(false)
   const [librarySearch, setLibrarySearch] = useState('')
@@ -26,6 +26,7 @@ export function RightPanel() {
   const [alignToSelection, setAlignToSelection] = useState(false)
   const [scaleX, setScaleX] = useState(100)
   const [scaleY, setScaleY] = useState(100)
+  const [contextTab, setContextTab] = useState<'tool' | 'object' | 'frame' | 'document'>('object')
 
   useEffect(() => { setScaleX(100); setScaleY(100) }, [selection.shapeId])
 
@@ -34,12 +35,39 @@ export function RightPanel() {
   const shape = kf?.shapes.find((s) => s.id === selection.shapeId)
   const bone = kf ? (kf.bones ?? []).find((b) => b.id === selection.boneId) : null
 
+  useEffect(() => {
+    if (state.activePanel === 'properties') setContextTab(shape || bone ? 'object' : 'document')
+  }, [state.activePanel, selection.shapeId, selection.boneId])
+
   const toggle = (key: string) => setOpenSections((s) => ({ ...s, [key]: !s[key] }))
   const patch = (p: Partial<Shape>) => {
     if (!shape || !layer) return
     dispatch({ type: 'UPDATE_SHAPE', layerId: layer.id, shapeId: shape.id, patch: p })
   }
   const number = (value: number, fallback = 0) => (Number.isFinite(value) ? value : fallback)
+  const toolLabel = state.tool.replace(/([A-Z])/g, ' $1').replace(/^./, (c) => c.toUpperCase())
+
+  const matchContent = () => {
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity
+    for (const sourceLayer of project.layers) {
+      if (!sourceLayer.visible) continue
+      const active = getActiveKeyframe(sourceLayer, currentFrame)
+      for (const item of active?.shapes ?? []) {
+        if (!item.visible) continue
+        minX = Math.min(minX, item.x)
+        minY = Math.min(minY, item.y)
+        maxX = Math.max(maxX, item.x + item.width)
+        maxY = Math.max(maxY, item.y + item.height)
+      }
+    }
+    if (!Number.isFinite(minX)) {
+      dispatch({ type: 'STATUS', message: 'Add artwork to the stage before matching content' })
+      return
+    }
+    dispatch({ type: 'SET_PROJECT_PROP', prop: 'width', value: Math.max(1, Math.ceil(maxX - minX)) })
+    dispatch({ type: 'SET_PROJECT_PROP', prop: 'height', value: Math.max(1, Math.ceil(maxY - minY)) })
+    dispatch({ type: 'STATUS', message: 'Stage size matched to content' })
+  }
 
   /** Keeps absolute brush/path points aligned when a shape is moved or resized. */
   const geometryPatchFor = (source: Shape, next: Partial<Shape>): Partial<Shape> => {
@@ -157,6 +185,10 @@ export function RightPanel() {
   ]
 
   const activePanel = state.activePanel
+  const showDocument = activePanel !== 'properties' || contextTab === 'document'
+  const showTool = activePanel === 'properties' && contextTab === 'tool'
+  const showObject = activePanel === 'properties' && contextTab === 'object'
+  const showFrame = activePanel === 'properties' && contextTab === 'frame'
 
   return (
     <div className="right-panel">
@@ -183,8 +215,33 @@ export function RightPanel() {
       <div className="panel-content">
         {(activePanel === 'properties' || activePanel === 'document' || activePanel === 'publish') && (
           <div className="properties-panel">
-            {activePanel === 'document' && (
-              <div className="notice-bar">Document properties — changes apply to the whole stage.</div>
+            {activePanel === 'properties' && (
+              <div className="pi-context-tabs">
+                {([
+                  ['tool', 'Tool', state.tool],
+                  ['object', 'Object', 'selection'],
+                  ['frame', 'Frame', 'keyframe'],
+                  ['document', 'Doc', 'layers'],
+                ] as const).map(([id, label, icon]) => (
+                  <button
+                    key={id}
+                    className={`pi-context-tab ${contextTab === id ? 'active' : ''}`}
+                    title={`${label} properties`}
+                    onClick={() => setContextTab(id)}
+                  >
+                    <Icon name={icon} size={12} /><span>{label}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+            {showObject && shape && (
+              <div className="pi-quick-actions">
+                <button title="Bring to front" onClick={() => layer && dispatch({ type: 'ARRANGE_SHAPE', layerId: layer.id, shapeId: shape.id, direction: 'front' })}><Icon name="bringFront" size={14} /></button>
+                <button title="Send to back" onClick={() => layer && dispatch({ type: 'ARRANGE_SHAPE', layerId: layer.id, shapeId: shape.id, direction: 'back' })}><Icon name="sendBack" size={14} /></button>
+                <button title="Duplicate object" onClick={() => layer && dispatch({ type: 'DUPLICATE_SHAPE', layerId: layer.id, shapeId: shape.id })}><Icon name="copy" size={14} /></button>
+                <button title="Convert to symbol" onClick={() => dispatch({ type: 'ADD_LIBRARY_ITEM', item: { id: uid('symbol'), name: `${shape.name} Symbol`, type: 'Graphic', shapes: [{ ...shape, points: shape.points?.map((p) => ({ ...p })) }] } })}><Icon name="symbol" size={14} /></button>
+                <button className="danger" title="Delete object" onClick={() => layer && dispatch({ type: 'DELETE_SHAPE', layerId: layer.id, shapeId: shape.id })}><Icon name="trash" size={14} /></button>
+              </div>
             )}
             {activePanel === 'publish' && (
               <>
@@ -196,7 +253,34 @@ export function RightPanel() {
                 </div>
               </>
             )}
-            {section('document', 'Document', (
+            {showTool && section('tool', `${toolLabel} Tool`, (
+              <>
+                <div className="pi-tool-head">
+                  <span className="pi-tool-icon"><Icon name={state.tool} size={18} /></span>
+                  <span><b>{toolLabel}</b><small>{state.tool} tool</small></span>
+                </div>
+                <div className="prop-row"><label>Stroke</label><input type="color" value={state.strokeColor} onChange={(e) => dispatch({ type: 'SET_STROKE', color: e.target.value })} /></div>
+                <div className="prop-row"><label>Fill</label><input type="color" value={state.fillColor} onChange={(e) => dispatch({ type: 'SET_FILL', color: e.target.value })} /></div>
+                <div className="prop-row"><label>Width</label><input type="number" min="0" max="50" value={state.strokeWidth} onChange={(e) => dispatch({ type: 'SET_STROKE_WIDTH', width: Number(e.target.value) })} /><span className="prop-unit">px</span></div>
+                {(state.tool === 'pencil' || state.tool === 'brush' || state.tool === 'eraser') && <>
+                  <div className="prop-row"><label>Size</label><input type="range" min="1" max="80" value={state.toolSettings.brushSize} onChange={(e) => dispatch({ type: 'SET_TOOL_SETTING', key: 'brushSize', value: Number(e.target.value) })} /><span className="prop-value">{state.toolSettings.brushSize}px</span></div>
+                  <div className="prop-row"><label>Opacity</label><input type="range" min="0.05" max="1" step="0.05" value={state.toolSettings.brushOpacity} onChange={(e) => dispatch({ type: 'SET_TOOL_SETTING', key: 'brushOpacity', value: Number(e.target.value) })} /><span className="prop-value">{Math.round(state.toolSettings.brushOpacity * 100)}%</span></div>
+                  <div className="prop-row"><label>Smoothing</label><input type="range" min="0" max="1" step="0.05" value={state.toolSettings.smoothing} onChange={(e) => dispatch({ type: 'SET_TOOL_SETTING', key: 'smoothing', value: Number(e.target.value) })} /><span className="prop-value">{Math.round(state.toolSettings.smoothing * 100)}%</span></div>
+                </>}
+                {(state.tool === 'rectangle' || state.tool === 'rectPrimitive') && (
+                  <div className="prop-row"><label>Corner</label><input type="number" min="0" max="100" value={state.toolSettings.cornerRadius} onChange={(e) => dispatch({ type: 'SET_TOOL_SETTING', key: 'cornerRadius', value: Number(e.target.value) })} /><span className="prop-unit">px</span></div>
+                )}
+                {state.tool === 'polyStar' && <>
+                  <div className="prop-row"><label>Sides</label><input type="number" min="3" max="20" value={state.toolSettings.starSides} onChange={(e) => dispatch({ type: 'SET_TOOL_SETTING', key: 'starSides', value: Number(e.target.value) })} /></div>
+                  <div className="prop-row"><label>Inner radius</label><input type="range" min="0.05" max="0.95" step="0.05" value={state.toolSettings.starInnerRadius} onChange={(e) => dispatch({ type: 'SET_TOOL_SETTING', key: 'starInnerRadius', value: Number(e.target.value) })} /><span className="prop-value">{Math.round(state.toolSettings.starInnerRadius * 100)}</span></div>
+                </>}
+                {state.tool === 'text' && <>
+                  <div className="prop-row"><label>Font</label><select value={state.toolSettings.fontFamily} onChange={(e) => dispatch({ type: 'SET_TOOL_SETTING', key: 'fontFamily', value: e.target.value })}>{['Arial', 'Georgia', 'Times New Roman', 'Courier New', 'Verdana', 'Comic Sans MS'].map((font) => <option key={font}>{font}</option>)}</select></div>
+                  <div className="prop-row"><label>Size</label><input type="number" min="6" max="200" value={state.toolSettings.fontSize} onChange={(e) => dispatch({ type: 'SET_TOOL_SETTING', key: 'fontSize', value: Number(e.target.value) })} /><span className="prop-unit">px</span></div>
+                </>}
+              </>
+            ))}
+            {showDocument && section('document', 'Document', (
               <>
                 <div className="prop-row">
                   <label>Title</label>
@@ -211,10 +295,21 @@ export function RightPanel() {
                   <input type="color" value={project.backgroundColor} onChange={(e) => dispatch({ type: 'SET_PROJECT_PROP', prop: 'backgroundColor', value: e.target.value })} />
                 </div>
                 <div className="prop-row"><label>FPS</label><input type="number" value={project.fps} onChange={(e) => dispatch({ type: 'SET_PROJECT_PROP', prop: 'fps', value: Math.max(1, Number(e.target.value)) })} /></div>
+                <div className="prop-btn-row">
+                  <button onClick={matchContent}><Icon name="center" size={13} /> Match content</button>
+                  <button onClick={() => dispatch({ type: 'SET_PUBLISH_OPEN', open: true })}><Icon name="export" size={13} /> Publish settings</button>
+                </div>
               </>
             ))}
 
-            {section('position', 'Position and Size', shape ? (
+            {showObject && !shape && !bone && (
+              <div className="pi-empty">
+                <Icon name="selection" size={20} />
+                <span>Select an object on the Stage to edit its properties.</span>
+              </div>
+            )}
+
+            {showObject && shape && section('position', 'Position and Size', (
               <>
                 <div className="prop-grid-2">
                   <div className="prop-row"><label>X</label><input type="number" value={Math.round(shape.x * 10) / 10} onChange={(e) => patchGeometry({ x: Number(e.target.value) })} /></div>
@@ -232,6 +327,14 @@ export function RightPanel() {
                     patchGeometry({ width, height })
                   }} /></div>
                 </div>
+                <div className="pi-align-row" title="Align object on stage">
+                  {([
+                    ['alignLeft', 'Align left', 'left'], ['alignCenter', 'Align horizontal center', 'center'], ['alignRight', 'Align right', 'right'],
+                    ['chevronUp', 'Align top', 'top'], ['center', 'Align vertical center', 'middle'], ['chevronDown', 'Align bottom', 'bottom'],
+                  ] as const).map(([icon, title, direction]) => (
+                    <button key={title} title={title} onClick={() => alignShape(direction)}><Icon name={icon} size={13} /></button>
+                  ))}
+                </div>
                 <div className="prop-row">
                   <label>Rotation</label>
                   <input type="range" min="-180" max="180" value={shape.rotation} onChange={(e) => patch({ rotation: Number(e.target.value) })} />
@@ -244,9 +347,9 @@ export function RightPanel() {
                   <input type="checkbox" checked={constrainProportions} onChange={(e) => setConstrainProportions(e.target.checked)} />
                 </div>
               </>
-            ) : <div className="empty-hint">Select a shape on the Stage to edit its position and size.</div>)}
+            ))}
 
-            {section('fill', 'Fill and Stroke', shape ? (
+            {showObject && shape && section('fill', 'Color and Style', (
               <>
                 <div className="prop-row"><label>Fill</label><input type="color" value={shape.fill.startsWith('#') ? shape.fill : '#ffffff'} onChange={(e) => patch({ fill: e.target.value })} /><input className="hex-input" value={shape.fill} onChange={(e) => patch({ fill: e.target.value })} /></div>
                 <div className="prop-row"><label>Stroke</label><input type="color" value={shape.stroke.startsWith('#') ? shape.stroke : '#000000'} onChange={(e) => patch({ stroke: e.target.value })} /><input className="hex-input" value={shape.stroke} onChange={(e) => patch({ stroke: e.target.value })} /></div>
@@ -273,9 +376,23 @@ export function RightPanel() {
                   </>
                 )}
               </>
-            ) : <div className="empty-hint">No fill or stroke to edit.</div>)}
+            ))}
 
-            {section('appearance', 'Appearance', shape ? (
+            {showObject && shape && section('piTransform', 'Transform', (
+              <>
+                <div className="prop-grid-2">
+                  <div className="prop-row"><label>Scale X</label><input type="number" min="10" max="1000" value={Math.round(scaleX)} onChange={(e) => applyScale('x', Number(e.target.value))} /><span className="prop-unit">%</span></div>
+                  <div className="prop-row"><label>Scale Y</label><input type="number" min="10" max="1000" value={Math.round(scaleY)} onChange={(e) => applyScale('y', Number(e.target.value))} /><span className="prop-unit">%</span></div>
+                </div>
+                <div className="prop-btn-row">
+                  <button data-label="Flip H" onClick={() => flipShape('h')}><Icon name="alignLeft" size={13} /> Flip H</button>
+                  <button data-label="Flip V" onClick={() => flipShape('v')}><Icon name="chevronDown" size={13} /> Flip V</button>
+                  <button onClick={() => { setScaleX(100); setScaleY(100) }}>Reset</button>
+                </div>
+              </>
+            ))}
+
+            {showObject && shape && section('appearance', 'Appearance', (
               <>
                 <div className="prop-row"><label>Alpha</label><input type="range" min="0" max="1" step="0.05" value={shape.opacity} onChange={(e) => patch({ opacity: Number(e.target.value) })} /><span className="prop-value">{Math.round(shape.opacity * 100)}%</span></div>
                 <div className="prop-row"><label>Visible</label><input type="checkbox" checked={shape.visible} onChange={(e) => patch({ visible: e.target.checked })} /></div>
@@ -288,11 +405,11 @@ export function RightPanel() {
                   <button className="danger" onClick={() => dispatch({ type: 'DELETE_SHAPE', layerId: layer!.id, shapeId: shape.id })}><Icon name="trash" size={13} /> Delete</button>
                 </div>
               </>
-            ) : <div className="empty-hint">Select a shape to edit its appearance.</div>)}
+            ))}
 
-            {section('bone', 'Bone Rigging', <BoneOptions embedded />)}
+            {showObject && section('bone', 'Bone Rigging', <BoneOptions embedded />)}
 
-            {section('tween', 'Tween', (
+            {showFrame && section('tween', 'Tween', (
               <>
                 <div className="prop-row">
                   <label>Tween type</label>
@@ -306,11 +423,16 @@ export function RightPanel() {
                   </select>
                 </div>
                 <div className="prop-row"><label>Easing</label><input type="range" min="-1" max="1" step="0.1" value={kf?.ease ?? 0} onChange={(e) => dispatch({ type: 'SET_KEYFRAME_EASE', ease: Number(e.target.value) })} /><span className="prop-value">{Math.round((kf?.ease ?? 0) * 100)}</span></div>
+                <div className="prop-btn-row">
+                  <button onClick={() => dispatch({ type: 'SET_KEYFRAME_TWEEN', tween: 'motion' })}>Motion Tween</button>
+                  <button onClick={() => dispatch({ type: 'SET_KEYFRAME_TWEEN', tween: 'shape' })}>Shape Tween</button>
+                  {kf?.tween && kf.tween !== 'none' && <button className="danger" onClick={() => dispatch({ type: 'SET_KEYFRAME_TWEEN', tween: 'none' })}>Remove Tween</button>}
+                </div>
                 <div className="empty-hint small">Add a second keyframe later on the timeline to create animation.</div>
               </>
             ))}
 
-            {section('frame', 'Frame', (
+            {showFrame && section('frame', 'Frame', (
               <>
                 <div className="prop-row"><label>Frame</label><span className="prop-static">{currentFrame + 1} / {project.totalFrames}</span></div>
                 <div className="prop-row"><label>Layer</label><span className="prop-static">{layer?.name ?? '—'}</span></div>
@@ -321,7 +443,7 @@ export function RightPanel() {
               </>
             ))}
 
-            {section('onion', 'Onion Skin', (
+            {showFrame && section('onion', 'Onion Skin', (
               <>
                 <label className="tool-option-check"><input type="checkbox" checked={state.onionSkin} onChange={() => dispatch({ type: 'TOGGLE', key: 'onionSkin' })} /> Enable onion skin</label>
                 <label className="tool-option-check"><input type="checkbox" checked={state.onionKeyframesOnly} onChange={() => dispatch({ type: 'TOGGLE', key: 'onionKeyframesOnly' })} /> Show keyframes only</label>
