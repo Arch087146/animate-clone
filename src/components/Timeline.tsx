@@ -316,7 +316,7 @@ export function Timeline() {
                     <div key={layer.id} className={`frame-row ${state.selection.layerId === layer.id ? 'selected' : ''} ${!layer.visible ? 'hidden-layer' : ''} ${layer.outline ? 'outline-layer' : ''}`} style={{ width: gridWidth, height: rowHeight }}>
                       {tweenSpans.map((span) => (
                         <div key={`tween-${span.f}`} className={`tween-span ${span.kf.tween}`} style={{ left: span.left, width: span.width }} title={`${span.kf.tween} tween`}>
-                          <span className="tween-arrow">→</span>
+                          <span className="tween-arrow">›</span>
                         </div>
                       ))}
                       {layer.frames.map((kf, f) => {
