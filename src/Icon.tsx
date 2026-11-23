@@ -62,6 +62,8 @@ const paths: Record<string, ReactNode> = {
   defaultColors: <><rect x="2" y="2" width="8" height="8" fill="#fff" stroke="currentColor" /><rect x="6" y="6" width="8" height="8" fill="#000" stroke="currentColor" /></>,
   keyframe: <><circle cx="8" cy="8" r="3.2" fill="currentColor" stroke="none" /><path d="M2 8h2.5M11.5 8H14" /></>,
   blankKeyframe: <><circle cx="8" cy="8" r="3.2" /><path d="M2 8h2.5M11.5 8H14" /></>,
+  outline: <><rect x="2" y="2" width="12" height="12" rx="1" /><rect x="4.5" y="4.5" width="7" height="7" /></>,
+  rowHeight: <><path d="M2 3h12M2 8h12M2 13h12" /><path d="M4.5 2v12M11.5 2v12" strokeDasharray="1.5 2" /></>,
   alignLeft: <><path d="M2 1v14M4 4h9M4 8h6M4 12h9" /></>,
   alignCenter: <><path d="M8 1v14M3 4h10M5 8h6M3 12h10" /></>,
   alignRight: <><path d="M14 1v14M3 4h9M6 8h6M3 12h9" /></>,

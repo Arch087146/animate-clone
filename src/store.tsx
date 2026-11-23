@@ -72,6 +72,7 @@ export type Action =
   | { type: 'ADD_LAYER' }
   | { type: 'DELETE_LAYER'; layerId: string }
   | { type: 'UPDATE_LAYER'; layerId: string; patch: Partial<Layer> }
+  | { type: 'TOGGLE_ALL_LAYERS'; key: 'visible' | 'locked' | 'outline'; value: boolean }
   | { type: 'REORDER_LAYER'; layerId: string; direction: 'up' | 'down' }
   | { type: 'DUPLICATE_LAYER'; layerId: string }
   | { type: 'INSERT_KEYFRAME'; blank?: boolean; frame?: number }
@@ -611,6 +612,12 @@ function reducer(store: Store, action: Action): Store {
 
     case 'UPDATE_LAYER':
       return mutate(store, (project) => mapLayer(project, action.layerId, (l) => ({ ...l, ...action.patch })))
+
+    case 'TOGGLE_ALL_LAYERS':
+      return mutate(store, (project) => ({
+        ...project,
+        layers: project.layers.map((layer) => ({ ...layer, [action.key]: action.value })),
+      }), `${action.value ? 'Enabled' : 'Disabled'} ${action.key} for all layers`)
 
     case 'REORDER_LAYER': {
       const index = p.layers.findIndex((l) => l.id === action.layerId)

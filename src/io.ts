@@ -126,6 +126,7 @@ export function normalizeProject(raw: unknown): Project {
       name: typeof source.name === 'string' ? source.name : `Layer ${layerIndex + 1}`,
       visible: source.visible !== false,
       locked: !!source.locked,
+      outline: !!source.outline,
       frames,
     } as Layer
   })

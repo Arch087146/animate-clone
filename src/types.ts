@@ -138,6 +138,7 @@ export interface Layer {
   name: string
   visible: boolean
   locked: boolean
+  outline: boolean
   frames: (Keyframe | null)[]
   color: string
   height: number
@@ -275,6 +276,7 @@ export const createLayer = (name: string, totalFrames: number, index = 0): Layer
     name,
     visible: true,
     locked: false,
+    outline: false,
     frames,
     color: ['#e57373', '#64b5f6', '#81c784', '#ffb74d', '#ba68c8', '#4dd0e1'][index % 6],
     height: 24,

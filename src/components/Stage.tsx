@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { getBrush, smoothPoints } from '../brushes'
-import { drawBones, drawSelection, drawShape } from '../draw'
+import { drawBones, drawSelection, drawShape, drawShapeOutline } from '../draw'
 import { useStore } from '../store'
 import { createShape, type Bone, type Point, type Shape, uid } from '../types'
 import { distanceToSegment, findKeyframeIndex, getActiveKeyframe, getRenderBones, getRenderShapes, pointInShape, shapeBounds } from '../utils'
@@ -179,7 +179,10 @@ export function Stage({ compact = false }: { compact?: boolean } = {}) {
       }
     }
 
-    for (const { shape } of getRenderShapes(project, currentFrame)) drawShape(ctx, shape)
+    for (const { shape, layer } of getRenderShapes(project, currentFrame)) {
+      if (layer.outline) drawShapeOutline(ctx, shape, layer.color, zoom)
+      else drawShape(ctx, shape)
+    }
     if (draft) drawShape(ctx, draft)
 
     const bones = getRenderBones(project, currentFrame)

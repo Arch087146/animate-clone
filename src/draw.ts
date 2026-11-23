@@ -140,6 +140,92 @@ export function drawShape(ctx: CanvasRenderingContext2D, shape: Shape) {
   ctx.restore()
 }
 
+/** Authoring-only layer outline rendering, matching Animate's outline swatches. */
+export function drawShapeOutline(ctx: CanvasRenderingContext2D, shape: Shape, color: string, scale: number) {
+  ctx.save()
+  ctx.globalAlpha = shape.opacity
+  const cx = shape.x + shape.width / 2
+  const cy = shape.y + shape.height / 2
+  const fx = shape.flipX ? -1 : 1
+  const fy = shape.flipY ? -1 : 1
+  if (shape.rotation || fx < 0 || fy < 0) {
+    ctx.translate(cx, cy)
+    if (shape.rotation) ctx.rotate((shape.rotation * Math.PI) / 180)
+    if (fx < 0 || fy < 0) ctx.scale(fx, fy)
+    ctx.translate(-cx, -cy)
+  }
+  ctx.strokeStyle = color
+  ctx.lineWidth = Math.max(0.75, 1 / Math.max(0.1, scale))
+  ctx.lineJoin = 'round'
+  ctx.lineCap = 'round'
+
+  switch (shape.type) {
+    case 'image':
+      ctx.strokeRect(shape.x, shape.y, shape.width, shape.height)
+      break
+    case 'rectangle':
+    case 'rectPrimitive': {
+      const r = shape.type === 'rectPrimitive' ? shape.cornerRadius ?? 0 : 0
+      ctx.beginPath()
+      ctx.roundRect(shape.x, shape.y, shape.width, shape.height, Math.max(0, Math.min(r, shape.width / 2, shape.height / 2)))
+      ctx.stroke()
+      break
+    }
+    case 'oval':
+    case 'ovalPrimitive':
+      ctx.beginPath()
+      ctx.ellipse(cx, cy, Math.max(0.1, shape.width / 2), Math.max(0.1, shape.height / 2), 0, 0, Math.PI * 2)
+      ctx.stroke()
+      break
+    case 'line': {
+      const pts = shape.points?.length === 2 ? shape.points : [
+        { x: shape.x, y: shape.y },
+        { x: shape.x + shape.width, y: shape.y + shape.height },
+      ]
+      ctx.beginPath()
+      ctx.moveTo(pts[0].x, pts[0].y)
+      ctx.lineTo(pts[1].x, pts[1].y)
+      ctx.stroke()
+      break
+    }
+    case 'path': {
+      if (!shape.points?.length) break
+      ctx.beginPath()
+      ctx.moveTo(shape.points[0].x, shape.points[0].y)
+      for (let i = 1; i < shape.points.length; i++) ctx.lineTo(shape.points[i].x, shape.points[i].y)
+      if (shape.closed) ctx.closePath()
+      ctx.stroke()
+      break
+    }
+    case 'polyStar': {
+      const sides = Math.max(3, shape.sides ?? 5)
+      const inner = shape.innerRadius ?? 0.45
+      const rx = shape.width / 2
+      const ry = shape.height / 2
+      ctx.beginPath()
+      for (let i = 0; i < sides * 2; i++) {
+        const a = -Math.PI / 2 + (i * Math.PI) / sides
+        const k = i % 2 === 0 ? 1 : inner
+        const px = cx + Math.cos(a) * rx * k
+        const py = cy + Math.sin(a) * ry * k
+        if (i === 0) ctx.moveTo(px, py)
+        else ctx.lineTo(px, py)
+      }
+      ctx.closePath()
+      ctx.stroke()
+      break
+    }
+    case 'text': {
+      const size = shape.fontSize ?? 28
+      ctx.font = `${shape.fontItalic ? 'italic ' : ''}${shape.fontBold === false ? 400 : 600} ${size}px ${shape.fontFamily ?? 'Arial'}, sans-serif`
+      ctx.textBaseline = 'top'
+      ctx.strokeText(shape.text ?? 'Text', shape.x, shape.y)
+      break
+    }
+  }
+  ctx.restore()
+}
+
 export interface BoneOverlayOptions {
   /** Point the Bone tool would snap to when starting a new bone. */
   snapPoint?: { x: number; y: number } | null
