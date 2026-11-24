@@ -265,12 +265,12 @@ export function MenuBar() {
     <div className="app-top" ref={ref}>
       <div className="menu-bar">
         <button
-          className="app-mark"
+          className="adobe-mark"
           title="Home screen"
           aria-label="Home screen"
           onClick={() => dispatch({ type: 'SET_SCREEN', screen: 'home' })}
         >
-          <Icon name="AppMark" size={17} />
+          <Icon name="Adobe" size={17} />
         </button>
         {Object.keys(menus).map((name) => (
           <div

@@ -623,7 +623,7 @@ export function RightPanel() {
 
         {activePanel === 'about' && (
           <div className="about-panel">
-            <div className="about-logo"><Icon name="AppMark" size={40} /></div>
+            <div className="about-logo"><Icon name="Adobe" size={40} /></div>
             <h2>Animate</h2>
             <p>Desktop Edition v1.0</p>
             <p>Draw, animate, rig, export video, and publish — all in a real Windows desktop app.</p>

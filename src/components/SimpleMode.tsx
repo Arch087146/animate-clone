@@ -79,7 +79,7 @@ export function SimpleMode() {
   return (
     <div className="simple-workspace">
       <header className="simple-header">
-        <div className="simple-brand"><Icon name="AppMark" size={18} /><b>Animate</b><span className="simple-doc">{project.name}</span></div>
+        <div className="simple-brand"><Icon name="Adobe" size={18} /><b>Animate</b><span className="simple-doc">{project.name}</span></div>
         <div className="simple-header-actions">
           <button className="simple-header-btn" onClick={() => dispatch({ type: 'SET_TUTORIALS_OPEN', open: true })}><Icon name="book" size={14} /> Guides</button>
           <button className="simple-header-btn" onClick={() => dispatch({ type: 'SET_THEME', theme: state.theme === 'dark' ? 'light' : 'dark' })}><Icon name={state.theme === 'dark' ? 'sun' : 'moon'} size={14} /></button>
