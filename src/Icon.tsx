@@ -91,7 +91,7 @@ const paths: Record<string, ReactNode> = {
   pro: <><path d="M8 1.5l1.8 4.2 4.7.4-3.6 3 1.2 4.5L8 11.3 4 13.6l1.2-4.5-3.6-3 4.7-.4z" /><path d="M6.5 8.5l1 1 2-2.5" /></>,
   upload: <><path d="M8 11V2M5 5l3-3 3 3" /><path d="M2 10v4h12v-4" /></>,
   close: <path d="M3 3l10 10M13 3L3 13" />,
- Adobe: <><path d="M4 1.5L1.5 14.5h2l.7-3h3l.7 3h2L8 1.5zM6 4l.8 5.5H5.2z" fill="currentColor" stroke="none" /><path d="M10.5 1.5v13h2.2c2.3 0 3.3-1.3 3.3-3.2 0-1.5-.7-2.5-1.9-2.9 1-.4 1.6-1.3 1.6-2.5 0-1.9-1.2-3.1-3.2-3.1zM12.3 3.2c1 0 1.5.5 1.5 1.4s-.5 1.4-1.5 1.4h-.5V3.2zM12.3 7.2c1.1 0 1.7.5 1.7 1.6s-.6 1.6-1.7 1.6h-.5V7.2z" fill="currentColor" stroke="none" /></>,
+  AppMark: <><rect x="1.5" y="2.5" width="13" height="11" rx="2.5" /><path d="M5 5.5h2.5M5 8h4M5 10.5h6" /><path d="M11.5 5l2 1.5-2 1.5z" fill="currentColor" stroke="none" /></>,
 }
 
 export function Icon({

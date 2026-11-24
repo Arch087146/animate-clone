@@ -75,7 +75,7 @@ export function HomeScreen() {
   return (
     <div className="home-screen">
       <aside className="home-sidebar">
-        <div className="home-brand"><Icon name="Adobe" size={24} /><span>Animate</span></div>
+        <div className="home-brand"><Icon name="AppMark" size={24} /><span>Animate</span></div>
         <div className="home-nav-title">START</div>
         {nav.map((item) => (
           <button key={item.id} className={`home-nav-item ${tab === item.id ? 'active' : ''}`} onClick={() => setTab(item.id)}>

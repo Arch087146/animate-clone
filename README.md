@@ -1,6 +1,6 @@
 # Animate — Desktop App
 
-A Windows desktop recreation of Adobe Animate's interface and animation workflow, built with React + Electron. It ships as a real app window — no browser chrome, no web server required.
+A Windows desktop 2D animation app built with React + Electron. It supports frame-by-frame animation, bone rigging, motion paths, drawing tools, and export to common formats in a native desktop window.
 
 ## Run the app
 
