@@ -30,12 +30,12 @@ const TUTORIALS: Tutorial[] = [
     try: 'blank',
   },
   {
-    id: 'brushes', title: 'Draw with 224 realistic brushes', icon: 'brush', time: '4 min', level: 'Beginner',
-    intro: 'The pencil and brush tools use a procedural brush engine — no two families feel the same.',
+    id: 'brushes', title: 'Draw with 37 CC0 Krita brushes', icon: 'brush', time: '4 min', level: 'Beginner',
+    intro: 'The pencil and brush tools use presets from David Revoy’s CC0 Krita brush bundle.',
     steps: [
       'Select the Pencil (Y) or Brush (B) tool. The options bar appears under the stage toolbar.',
-      'Choose a family from the first dropdown: Pencil, Charcoal, Ink, Watercolor, Oil, Chalk, Marker, Airbrush, Crayon, Calligraphy, Spray, Neon, Texture, or Eraser.',
-      'Pick a preset from the second dropdown and watch the live preview change.',
+      'Click the brush preview to open the preset picker, then choose a category: Lineart, Essentials, Glazing, Textured, Water or Effects.',
+      'Pick a preset from the grid and watch the live preview change.',
       'Set Size, Opacity, Flow, Spacing and Scatter with the sliders.',
       'Drag on the stage. Strokes keep their brush settings when you save and reopen the project.',
     ],

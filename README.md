@@ -33,7 +33,7 @@ npm run dist         # rebuild and repackage into release/
 
 ### Drawing & tools
 - 20 tools: selection, subselection, lasso, pen, text, line, rectangle/oval, primitives, poly-star, pencil, brush, eraser, ink bottle, paint bucket, eyedropper, hand, zoom and **bone**
-- **640 realistic brushes** across 32 families, built procedurally with real texture masks, bristle streaks, velocity/pressure dynamics, wet-media bleed and pattern stamps. Families include Pencil, Charcoal, Ink, Watercolor, Oil, Chalk, Marker, Airbrush, Crayon, Calligraphy, Spray, Neon, Texture, Eraser, Acrylic, Gouache, Pastel, Fan, Dry Brush, Splatter, Smudge, Sumi, Technical, Fiber, Gel, Knife, Sponge, Stencil, Bamboo, Metallic, Cloud and Fur. Live previews plus adjustable size, opacity, flow, spacing, scatter and smoothing.
+- **37 CC0 brush presets** imported from David Revoy’s Krita 2025-01 bundle, with 22 real grayscale tip images. Krita-style picker with categories, search and live previews plus adjustable size, opacity, flow, spacing, scatter and smoothing. Attribution is in `NOTICE.md`.
 - Contextual tool options bar with full per-tool settings
 - Font family, size, bold/italic controls for text
 - Real eraser dragging, pen paths, lasso selection, eyedropper color picking

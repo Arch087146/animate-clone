@@ -13,7 +13,7 @@ export interface BrushPickerPosition {
 }
 
 function shortName(brush: BrushPreset) {
-  return brush.name.replace(/^Krita CC0 · /, '').replace(/^CC0 /, '')
+  return brush.name.replace(/^Krita CC0 · /, '')
 }
 
 function BrushTile({
@@ -96,15 +96,10 @@ export function BrushPicker({
     })
   }, [category, query])
 
-  const stats = useMemo(() => {
-    const krita = BRUSHES.filter((brush) => brush.family === 'Krita CC0')
-    const tips = new Set(krita.map((brush) => brush.params.stampImage).filter(Boolean))
-    return {
-      krita: krita.length,
-      tips: tips.size,
-      cc0: BRUSHES.length - krita.length,
-    }
-  }, [])
+  const stats = useMemo(() => ({
+    presets: BRUSHES.length,
+    tips: new Set(BRUSHES.map((brush) => brush.params.stampImage).filter(Boolean)).size,
+  }), [])
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -181,7 +176,7 @@ export function BrushPicker({
               <span>{activeBrush.description}</span>
             </div>
             <span className="brush-picker-stats">
-              {stats.krita} Krita presets · {stats.tips} real tips · {stats.cc0} CC0 tips
+              {stats.presets} Krita presets · {stats.tips} real tips
             </span>
           </div>
         </div>

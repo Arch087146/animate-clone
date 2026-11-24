@@ -1,4 +1,4 @@
-import { getBrush, getBrushesByFamily, type BrushFamily } from '../brushes'
+import { BRUSHES, BRUSH_CATEGORIES, brushCategory, getBrush } from '../brushes'
 import { Icon } from '../Icon'
 import { exportAnimationHTML } from '../io'
 import { useStore } from '../store'
@@ -9,7 +9,7 @@ import type { Shape, ToolId } from '../types'
 const SIMPLE_TOOLS: { id: ToolId; label: string; icon: string; hint: string }[] = [
   { id: 'selection', label: 'Select', icon: 'selection', hint: 'Click a shape to select it. Drag to move it, drag the corner handles to resize.' },
   { id: 'pencil', label: 'Draw', icon: 'pencil', hint: 'Drag on the stage to draw with a pencil. Pick a brush below to change how it looks.' },
-  { id: 'brush', label: 'Paint', icon: 'brush', hint: 'Drag on the stage to paint with a thick brush. Try Watercolor or Oil!' },
+  { id: 'brush', label: 'Paint', icon: 'brush', hint: 'Drag on the stage to paint with a Krita brush preset. Open the brush picker to choose one.' },
   { id: 'paintBucket', label: 'Fill', icon: 'paintBucket', hint: 'Pick a color below, then click inside a shape to fill it.' },
   { id: 'text', label: 'Text', icon: 'text', hint: 'Click on the stage to add text, then type your words in the Properties panel.' },
   { id: 'eraser', label: 'Erase', icon: 'eraser', hint: 'Drag across a drawing to erase part of it. Use the size slider to change the eraser.' },
@@ -17,23 +17,29 @@ const SIMPLE_TOOLS: { id: ToolId; label: string; icon: string; hint: string }[] 
   { id: 'motionPath', label: 'Motion Path', icon: 'motionPath', hint: 'Select a shape, then drag on the stage to draw the track it should follow. The shape animates along that track.' },
 ]
 
-const FAMILY_CHIPS: { family: BrushFamily; label: string; color: string }[] = [
-  { family: 'Pencil', label: 'Pencil', color: '#5d4037' },
-  { family: 'Charcoal', label: 'Charcoal', color: '#37474f' },
-  { family: 'Ink', label: 'Ink', color: '#0d47a1' },
-  { family: 'Watercolor', label: 'Watercolor', color: '#7b1fa2' },
-  { family: 'Oil', label: 'Oil', color: '#e65100' },
-  { family: 'Marker', label: 'Marker', color: '#00897b' },
-  { family: 'Pastel', label: 'Pastel', color: '#ad1457' },
-  { family: 'Acrylic', label: 'Acrylic', color: '#1565c0' },
-  { family: 'Airbrush', label: 'Airbrush', color: '#0277bd' },
-  { family: 'Calligraphy', label: 'Calligraphy', color: '#4527a0' },
-  { family: 'Fan', label: 'Fan', color: '#2e7d32' },
-  { family: 'Dry Brush', label: 'Dry Brush', color: '#6d4c41' },
-  { family: 'Splatter', label: 'Splatter', color: '#c62828' },
-  { family: 'Neon', label: 'Neon', color: '#00e5ff' },
-  { family: 'Texture', label: 'Texture', color: '#455a64' },
-]
+const CATEGORY_LABELS: Record<string, string> = {
+  'Pencils & Lineart': 'Lineart',
+  'Brushes & Glazing': 'Glazing',
+  'Textured Brushes': 'Textured',
+  'Textures & Effects': 'Effects',
+}
+
+const CATEGORY_COLORS: Record<string, string> = {
+  'Pencils & Lineart': '#5d4037',
+  Essentials: '#0d47a1',
+  'Brushes & Glazing': '#7b1fa2',
+  'Textured Brushes': '#6d4c41',
+  Water: '#0277bd',
+  'Textures & Effects': '#c62828',
+}
+
+const KRITA_CATEGORY_CHIPS = BRUSH_CATEGORIES
+  .filter((category) => BRUSHES.some((brush) => brushCategory(brush) === category))
+  .map((category) => ({
+    category,
+    label: CATEGORY_LABELS[category] ?? category,
+    color: CATEGORY_COLORS[category] ?? '#455a64',
+  }))
 
 const COLORS = ['#000000', '#ffffff', '#e53935', '#fb8c00', '#fdd835', '#43a047', '#00acc1', '#1e88e5', '#8e24aa', '#f06292', '#8d6e63', '#ff7043']
 
@@ -44,7 +50,7 @@ export function SimpleMode() {
   const kf = layer ? getActiveKeyframe(layer, currentFrame) : null
   const shape = kf?.shapes.find((s) => s.id === state.selection.shapeId)
   const currentHint = SIMPLE_TOOLS.find((t) => t.id === tool)?.hint ?? 'Pick a tool on the left to get started.'
-  const brushFamily = getBrush(state.toolSettings.brushId).family
+  const activeCategory = brushCategory(getBrush(state.toolSettings.brushId))
 
   const setTool = (id: ToolId) => dispatch({ type: 'SET_TOOL', tool: id })
   const patchShape = (patch: Partial<Shape>) => {
@@ -90,13 +96,13 @@ export function SimpleMode() {
           ))}
           <div className="simple-tools-label brush-label">BRUSHES</div>
           <div className="simple-brush-chips">
-            {FAMILY_CHIPS.map((chip) => (
+            {KRITA_CATEGORY_CHIPS.map((chip) => (
               <button
-                key={chip.family}
-                className={brushFamily === chip.family ? 'active' : ''}
+                key={chip.category}
+                className={activeCategory === chip.category ? 'active' : ''}
                 style={{ '--chip-color': chip.color } as React.CSSProperties}
                 onClick={() => {
-                  const first = getBrushesByFamily(chip.family)[0]
+                  const first = BRUSHES.find((brush) => brushCategory(brush) === chip.category)
                   if (first) dispatch({ type: 'SET_TOOL_SETTING', key: 'brushId', value: first.id })
                   if (tool !== 'pencil' && tool !== 'brush') setTool('brush')
                 }}

@@ -245,7 +245,7 @@ export function HomeScreen() {
             <div className="tutorial-grid">
               {[
                 { icon: 'rocket', title: 'Your first animation', text: 'Draw a shape, add a keyframe, and watch it move.' },
-                { icon: 'brush', title: 'Realistic brushes', text: 'Find 224 brushes and tune size, flow, and texture.' },
+                { icon: 'brush', title: 'Krita brush presets', text: 'Browse 37 CC0 brushes and tune size, flow, and texture.' },
                 { icon: 'bone', title: 'Stick figure rigging', text: 'Add bones and pose arms and legs without redrawing.' },
                 { icon: 'onion', title: 'Smooth motion', text: 'Use onion skin and easing for natural movement.' },
                 { icon: 'symbol', title: 'Symbols & library', text: 'Reuse artwork across your animation.' },

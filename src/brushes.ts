@@ -1,12 +1,7 @@
 import type { Point } from './types'
-import { CC0_BRUSHES } from './cc0Brushes.generated'
 import { KRITA_BRUSHES } from './kritaBrushes.generated'
 
-export type BrushFamily =
-  | 'Basic' | 'Pencil' | 'Charcoal' | 'Ink' | 'Watercolor' | 'Oil' | 'Chalk' | 'Marker' | 'Airbrush'
-  | 'Crayon' | 'Calligraphy' | 'Spray' | 'Neon' | 'Texture' | 'Eraser' | 'Acrylic' | 'Gouache'
-  | 'Pastel' | 'Fan' | 'Dry Brush' | 'Splatter' | 'Smudge' | 'Sumi' | 'Technical' | 'Fiber'
-  | 'Gel' | 'Knife' | 'Sponge' | 'Stencil' | 'Bamboo' | 'Metallic' | 'Cloud' | 'Fur' | 'CC0' | 'Krita CC0'
+export type BrushFamily = 'Krita CC0'
 
 export const BRUSH_CATEGORIES = [
   'Pencils & Lineart',
@@ -15,8 +10,6 @@ export const BRUSH_CATEGORIES = [
   'Textured Brushes',
   'Water',
   'Textures & Effects',
-  'CC0 Tips',
-  'Other',
 ] as const
 
 export type DabTexture = 'smooth' | 'paper' | 'canvas' | 'grit' | 'rough' | 'fibrous' | 'crackle'
@@ -72,7 +65,7 @@ export interface BrushParams {
   stamp?: DabStamp
   /** Alternate between two hues for multicolour / dual-tip brushes. */
   multicolor?: boolean
-  /** Bundled CC0 brush tip image used as a stamp (public-domain GIMP tips). */
+  /** Bundled CC0 Krita tip image used as a stamp. */
   stampImage?: string
   /** Render as a clean vector pen stroke instead of textured dabs. */
   cleanStroke?: CleanStroke
@@ -182,27 +175,16 @@ function shiftHue(hex: string, degrees: number): string {
   return `rgb(${Math.round((rr + m) * 255)},${Math.round((gg + m) * 255)},${Math.round((bb + m) * 255)})`
 }
 
-export const BRUSHES: BrushPreset[] = [
-  ...KRITA_BRUSHES,
-  ...CC0_BRUSHES,
-]
-
-export const BRUSH_FAMILIES: BrushFamily[] = Array.from(
-  new Set(BRUSHES.map((brush) => brush.family)),
-)
+export const BRUSHES: BrushPreset[] = KRITA_BRUSHES
 
 export function brushCategory(brush: BrushPreset): string {
-  return brush.category ?? (brush.family === 'CC0' ? 'CC0 Tips' : brush.family)
+  return brush.category ?? 'Other'
 }
 
 const BRUSH_MAP = new Map(BRUSHES.map((brush) => [brush.id, brush]))
 
 export function getBrush(id: string): BrushPreset {
   return BRUSH_MAP.get(id) ?? BRUSHES[0]
-}
-
-export function getBrushesByFamily(family: BrushFamily): BrushPreset[] {
-  return BRUSHES.filter((brush) => brush.family === family)
 }
 
 /* ------------------------------------------------------------------ *
@@ -315,7 +297,7 @@ function drawStreak(
   ctx.restore()
 }
 
-/* Cached decoded + colourised CC0 brush tips. The importer writes grayscale
+/* Cached decoded + colourised brush tips. The importer writes grayscale
  * PNGs where luminance is the tip's opacity; these helpers turn that into a
  * coloured stamp once per (image, colour) pair so strokes stay fast. */
 const TIP_IMAGE_CACHE = new Map<string, HTMLImageElement>()
@@ -395,7 +377,7 @@ function drawTipStamp(
 
 // Warm the image cache so library previews and the first stroke are ready.
 if (typeof Image !== 'undefined') {
-  for (const brush of [...CC0_BRUSHES, ...KRITA_BRUSHES]) {
+  for (const brush of BRUSHES) {
     if (brush.params.stampImage) loadTip(brush.params.stampImage)
   }
 }
@@ -844,7 +826,7 @@ export function renderBrushStroke(
       const dabColor = useAlt ? altColor : wetness > 0 && Math.abs(spread) > 0.55 ? edgeColor : color
 
       if (p.stampImage) {
-        // Bundled CC0 brush tips define the actual mark shape. Until the image
+        // Bundled brush tips define the actual mark shape. Until the image
         // decodes, fall back to a normal dab so the stroke is never empty.
         if (!drawTipStamp(workCtx, p.stampImage, cx, cy, baseRx * 2 * bristleScale, p.aspect, rotation, dabColor, alpha)) {
           dab(workCtx, cx, cy, baseRx * bristleScale, Math.max(0.15, baseRy * bristleScale), rotation, dabColor, alpha, p.softness, p.irregularity ?? 0, phase + b, rand)
