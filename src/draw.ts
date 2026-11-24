@@ -1,5 +1,5 @@
 import { getBrush, renderBrushStroke } from './brushes'
-import type { Bone, Shape } from './types'
+import type { Bone, Point, Shape } from './types'
 
 const imageCache = new Map<string, HTMLImageElement>()
 const pendingImages = new Set<string>()
@@ -331,25 +331,94 @@ export function drawBones(
 
 export function drawSelection(ctx: CanvasRenderingContext2D, shape: Shape, scale: number) {
   ctx.save()
-  ctx.strokeStyle = '#1473e6'
-  ctx.lineWidth = 1 / scale
+  ctx.lineJoin = 'round'
   ctx.setLineDash([])
-  const pad = 5 / scale
+  const pad = 6 / scale
   const x = shape.x - pad
   const y = shape.y - pad
   const w = shape.width + pad * 2
   const h = shape.height + pad * 2
-  ctx.strokeRect(x, y, w, h)
-  const s = 5 / scale
-  ctx.fillStyle = '#ffffff'
+  const radius = Math.min(2.5 / scale, w / 2, h / 2)
+
+  // A light halo keeps the box readable on both dark artwork and white stages.
+  ctx.strokeStyle = 'rgba(255,255,255,0.95)'
+  ctx.lineWidth = 3.5 / scale
+  ctx.beginPath()
+  ctx.roundRect(x, y, w, h, radius)
+  ctx.stroke()
+  ctx.strokeStyle = '#0b6efd'
+  ctx.lineWidth = 1.25 / scale
+  ctx.beginPath()
+  ctx.roundRect(x, y, w, h, radius)
+  ctx.stroke()
+
+  const s = 8 / scale
   const handles = [
     [x, y], [x + w / 2, y], [x + w, y],
     [x, y + h / 2], [x + w, y + h / 2],
     [x, y + h], [x + w / 2, y + h], [x + w, y + h],
   ]
   for (const [hx, hy] of handles) {
-    ctx.fillRect(hx - s / 2, hy - s / 2, s, s)
-    ctx.strokeRect(hx - s / 2, hy - s / 2, s, s)
+    const hx0 = hx - s / 2
+    const hy0 = hy - s / 2
+    ctx.save()
+    ctx.shadowColor = 'rgba(0,0,0,0.28)'
+    ctx.shadowBlur = 2
+    ctx.shadowOffsetY = 1
+    ctx.fillStyle = '#ffffff'
+    ctx.beginPath()
+    ctx.roundRect(hx0, hy0, s, s, 1.5 / scale)
+    ctx.fill()
+    ctx.restore()
+    ctx.strokeStyle = '#0b6efd'
+    ctx.lineWidth = 1.25 / scale
+    ctx.beginPath()
+    ctx.roundRect(hx0, hy0, s, s, 1.5 / scale)
+    ctx.stroke()
+  }
+  ctx.restore()
+}
+
+/** Subselection anchors: same clean overlay language, but for vector points. */
+export function drawPointSelection(ctx: CanvasRenderingContext2D, points: Point[], scale: number, closed = false) {
+  if (!points.length) return
+  ctx.save()
+  ctx.lineCap = 'round'
+  ctx.lineJoin = 'round'
+  const trace = () => {
+    ctx.beginPath()
+    ctx.moveTo(points[0].x, points[0].y)
+    for (let i = 1; i < points.length; i++) ctx.lineTo(points[i].x, points[i].y)
+    if (closed) ctx.closePath()
+  }
+  ctx.setLineDash([])
+  ctx.strokeStyle = 'rgba(255,255,255,0.95)'
+  ctx.lineWidth = 3.5 / scale
+  trace()
+  ctx.stroke()
+  ctx.strokeStyle = '#0b6efd'
+  ctx.lineWidth = 1.25 / scale
+  ctx.setLineDash([5 / scale, 4 / scale])
+  trace()
+  ctx.stroke()
+  ctx.setLineDash([])
+
+  const r = 4.5 / scale
+  for (const point of points) {
+    ctx.save()
+    ctx.shadowColor = 'rgba(0,0,0,0.25)'
+    ctx.shadowBlur = 2
+    ctx.shadowOffsetY = 1
+    ctx.fillStyle = '#ffffff'
+    ctx.beginPath()
+    ctx.arc(point.x, point.y, r, 0, Math.PI * 2)
+    ctx.fill()
+    ctx.restore()
+    ctx.strokeStyle = '#0b6efd'
+    ctx.lineWidth = 1.25 / scale
+    ctx.beginPath()
+    ctx.arc(point.x, point.y, r, 0, Math.PI * 2)
+    ctx.stroke()
   }
   ctx.restore()
 }

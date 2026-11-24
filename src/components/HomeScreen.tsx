@@ -245,8 +245,8 @@ export function HomeScreen() {
             <div className="tutorial-grid">
               {[
                 { icon: 'rocket', title: 'Your first animation', text: 'Draw a shape, add a keyframe, and watch it move.' },
-                { icon: 'brush', title: 'CC0 brush library', text: 'Browse 181 Krita and GIMP brushes and tune size, flow, and texture.' },
-                { icon: 'bone', title: 'Stick figure rigging', text: 'Add bones and pose arms and legs without redrawing.' },
+                { icon: 'brush', title: 'Brushes & Basic Pen', text: 'Browse 181 CC0 brushes or grab the built-in Basic Pen for clean lines.' },
+                { icon: 'bone', title: 'Stick figure animation', text: 'Move the whole character or one leg, add poses, then press play.' },
                 { icon: 'onion', title: 'Smooth motion', text: 'Use onion skin and easing for natural movement.' },
                 { icon: 'symbol', title: 'Symbols & library', text: 'Reuse artwork across your animation.' },
                 { icon: 'export', title: 'Publishing', text: 'Export MP4, WebM, MKV, GIF, PNG sequences, HTML and more.' },

@@ -27,4 +27,10 @@ tips under `src/assets/brushes/krita/`.
 Both CC0 sets appear together in the brush picker. Exact duplicate presets are
 deduplicated when the brush library loads.
 
+## Built-in Basic Pen
+
+The two “Basic Pen” presets are generated directly in `src/brushes.ts` from this
+application's own brush engine. They contain no third-party artwork and need no
+external attribution.
+
 No proprietary or closed-source application assets are included.

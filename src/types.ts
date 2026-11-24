@@ -196,7 +196,7 @@ export interface ToolSettings {
 }
 
 export const createToolSettings = (): ToolSettings => ({
-  brushId: 'krita_cc0_b5_thin_basic_details_1',
+  brushId: 'basic-pen',
   brushSize: 4,
   brushOpacity: 1,
   flowScale: 1,

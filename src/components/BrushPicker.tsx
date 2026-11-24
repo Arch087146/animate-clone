@@ -1,6 +1,13 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { BRUSHES, BRUSH_CATEGORIES, brushCategory, renderBrushPreview, type BrushPreset } from '../brushes'
+import {
+  BRUSHES,
+  BRUSH_CATEGORIES,
+  brushCategory,
+  matchesBrushQuery,
+  renderBrushPreview,
+  type BrushPreset,
+} from '../brushes'
 import { Icon } from '../Icon'
 
 const ALL = 'All brushes'
@@ -44,7 +51,7 @@ function BrushTile({
         <canvas ref={canvasRef} width={150} height={46} />
         {brush.params.stampImage
           ? <img className="brush-tip-image" src={brush.params.stampImage} alt="" />
-          : <span className="brush-tip-image brush-tip-fallback">S</span>}
+          : <span className="brush-tip-image brush-tip-fallback">{brush.params.cleanStroke ? '✎' : 'S'}</span>}
       </span>
       <span className="brush-tile-name">{shortName(brush)}</span>
       <span className="brush-tile-meta">{brushCategory(brush)}</span>
@@ -72,35 +79,44 @@ export function BrushPicker({
   const [category, setCategory] = useState(() => brushCategory(activeBrush))
   const [query, setQuery] = useState('')
 
+  // Search is global by default: typing "pen" should not be trapped in Water.
+  const matched = useMemo(() => BRUSHES.filter((brush) => matchesBrushQuery(brush, query)), [query])
+
   const categories = useMemo(() => {
     const counts = new Map<string, number>()
-    for (const brush of BRUSHES) {
+    for (const brush of matched) {
       const name = brushCategory(brush)
       counts.set(name, (counts.get(name) ?? 0) + 1)
     }
     const ordered: string[] = BRUSH_CATEGORIES.filter((name) => counts.has(name))
     const extras = [...counts.keys()].filter((name) => !ordered.includes(name)).sort()
     return [
-      { name: ALL, count: BRUSHES.length },
+      { name: ALL, count: matched.length },
       ...ordered.map((name) => ({ name, count: counts.get(name) ?? 0 })),
       ...extras.map((name) => ({ name, count: counts.get(name) ?? 0 })),
     ]
-  }, [])
+  }, [matched])
 
-  const visible = useMemo(() => {
-    const q = query.trim().toLowerCase()
-    return BRUSHES.filter((brush) => {
-      if (category !== ALL && brushCategory(brush) !== category) return false
-      if (!q) return true
-      return `${brush.name} ${brush.family} ${brushCategory(brush)}`.toLowerCase().includes(q)
-    })
-  }, [category, query])
+  const visible = useMemo(() => (
+    category === ALL ? matched : matched.filter((brush) => brushCategory(brush) === category)
+  ), [matched, category])
 
   const stats = useMemo(() => ({
     krita: BRUSHES.filter((brush) => brush.family === 'Krita CC0').length,
     gimp: BRUSHES.filter((brush) => brush.family === 'CC0').length,
+    builtin: BRUSHES.filter((brush) => brush.family === 'Built-in').length,
     tips: new Set(BRUSHES.map((brush) => brush.params.stampImage).filter(Boolean)).size,
   }), [])
+
+  const resetFilters = () => {
+    setQuery('')
+    setCategory(ALL)
+  }
+
+  const updateQuery = (value: string) => {
+    setQuery(value)
+    if (value.trim()) setCategory(ALL)
+  }
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -130,10 +146,12 @@ export function BrushPicker({
           <span className="brush-picker-heading"><Icon name="brush" size={16} /> Brush presets</span>
           <input
             className="brush-picker-search"
-            placeholder="Search brushes…"
+            placeholder="Search pens, pencils, brushes…"
+            aria-label="Search brush presets"
             value={query}
-            onChange={(event) => setQuery(event.target.value)}
+            onChange={(event) => updateQuery(event.target.value)}
             autoFocus
+            spellCheck={false}
           />
           <button className="brush-picker-close" title="Close brush presets" onClick={onClose}>
             <Icon name="close" size={12} />
@@ -155,8 +173,12 @@ export function BrushPicker({
 
         <div className="brush-picker-main">
           <div className="brush-picker-toolbar">
-            <strong>{category}</strong>
+            <strong>{query.trim() ? 'Search results' : category}</strong>
             <span>{visible.length} shown</span>
+            {query.trim() && <span className="brush-picker-hint">all categories</span>}
+            {(query.trim() || category !== ALL) && (
+              <button className="brush-picker-reset" onClick={resetFilters}>Reset</button>
+            )}
             <span className="brush-picker-legend"><i className="legend-tip" /> real tip image</span>
           </div>
           <div className="brush-picker-grid" ref={gridRef}>
@@ -169,7 +191,12 @@ export function BrushPicker({
                 onPick={onPick}
               />
             ))}
-            {!visible.length && <div className="brush-picker-empty">No brushes match “{query}”.</div>}
+            {!visible.length && (
+              <div className="brush-picker-empty">
+                <strong>{query.trim() ? `No brushes match “${query}”.` : `No brushes in ${category}.`}</strong>
+                <button onClick={resetFilters}>Clear search and filters</button>
+              </div>
+            )}
           </div>
           <div className="brush-picker-footer">
             <div className="brush-picker-selected">
@@ -177,7 +204,7 @@ export function BrushPicker({
               <span>{activeBrush.description}</span>
             </div>
             <span className="brush-picker-stats">
-              {stats.krita} Krita presets · {stats.gimp} GIMP tips · {stats.tips} unique masks
+              {stats.krita} Krita presets · {stats.gimp} GIMP tips · {stats.builtin} built-in pens · {stats.tips} unique masks
             </span>
           </div>
         </div>

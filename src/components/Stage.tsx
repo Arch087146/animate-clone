@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { getBrush, smoothPoints } from '../brushes'
-import { drawBones, drawSelection, drawShape, drawShapeOutline } from '../draw'
+import { drawBones, drawPointSelection, drawSelection, drawShape, drawShapeOutline } from '../draw'
 import { useStore } from '../store'
 import { createShape, type Bone, type Point, type Shape, uid } from '../types'
 import { distanceToSegment, findKeyframeIndex, getActiveKeyframe, getRenderBones, getRenderShapes, pointInShape, shapeBounds } from '../utils'
@@ -383,7 +383,7 @@ export function Stage({ compact = false }: { compact?: boolean } = {}) {
     const selected = kf?.shapes.find((s) => s.id === selection.shapeId)
     if (selected && tool !== 'subselection') drawSelection(ctx, selected, zoom)
     if (selected && tool === 'subselection' && selected.points?.length) {
-      drawGuide(selected.points, '#1473e6', false)
+      drawPointSelection(ctx, selected.points, zoom, Boolean(selected.closed))
     }
   }, [project, zoom, currentFrame, state.showGrid, state.onionSkin, state.onionRange, state.onionOpacity, state.showBones, draft, draftBone, selection, penPoints, lassoPoints, motionPathDraft, tool, snapJoint, clearLiveStroke])
 

@@ -2,7 +2,7 @@ import type { Point } from './types'
 import { CC0_BRUSHES } from './cc0Brushes.generated'
 import { KRITA_BRUSHES } from './kritaBrushes.generated'
 
-export type BrushFamily = 'Krita CC0' | 'CC0'
+export type BrushFamily = 'Built-in' | 'Krita CC0' | 'CC0'
 
 export const BRUSH_CATEGORIES = [
   'Pencils & Lineart',
@@ -13,6 +13,34 @@ export const BRUSH_CATEGORIES = [
   'Textures & Effects',
   'CC0 Tips',
 ] as const
+
+/** Simple, code-generated pens; no third-party assets involved. */
+const BUILTIN_BRUSHES: BrushPreset[] = [
+  {
+    id: 'basic-pen',
+    name: 'Basic Pen',
+    family: 'Built-in',
+    category: 'Pencils & Lineart',
+    description: 'Plain clean pen for lineart and stick figures. No texture, no surprises.',
+    params: {
+      size: 4, hardness: 1, opacity: 1, spacing: 0.05, scatter: 0, rotation: 0,
+      bristles: 1, flow: 1, grain: 0, taper: 0, softness: 0, aspect: 1, glow: 0,
+      velocitySize: 0, velocityOpacity: 0, cleanStroke: 'round',
+    },
+  },
+  {
+    id: 'basic-pen-fine',
+    name: 'Basic Pen · Fine',
+    family: 'Built-in',
+    category: 'Pencils & Lineart',
+    description: 'A thinner version of the Basic Pen for neat details and faces.',
+    params: {
+      size: 2, hardness: 1, opacity: 1, spacing: 0.05, scatter: 0, rotation: 0,
+      bristles: 1, flow: 1, grain: 0, taper: 0, softness: 0, aspect: 1, glow: 0,
+      velocitySize: 0, velocityOpacity: 0, cleanStroke: 'fine',
+    },
+  },
+]
 
 export type DabTexture = 'smooth' | 'paper' | 'canvas' | 'grit' | 'rough' | 'fibrous' | 'crackle'
 export type DabStamp = 'none' | 'dot' | 'square' | 'leaf' | 'grass' | 'star' | 'brick' | 'splat' | 'cloud' | 'ring' | 'scale' | 'scribble'
@@ -188,8 +216,8 @@ function brushSignature(brush: BrushPreset): string {
 
 const seenBrushSignatures = new Set<string>()
 
-/** Krita presets come first; exact repeats from either source are dropped. */
-export const BRUSHES: BrushPreset[] = [...KRITA_BRUSHES, ...CC0_BRUSHES].filter((brush) => {
+/** Built-in pens and Krita presets come first; exact repeats are dropped. */
+export const BRUSHES: BrushPreset[] = [...BUILTIN_BRUSHES, ...KRITA_BRUSHES, ...CC0_BRUSHES].filter((brush) => {
   const signature = brushSignature(brush)
   if (seenBrushSignatures.has(signature)) return false
   seenBrushSignatures.add(signature)
@@ -198,6 +226,30 @@ export const BRUSHES: BrushPreset[] = [...KRITA_BRUSHES, ...CC0_BRUSHES].filter(
 
 export function brushCategory(brush: BrushPreset): string {
   return brush.category ?? (brush.family === 'CC0' ? 'CC0 Tips' : 'Other')
+}
+
+/** Searchable words for a preset, including the things people actually type. */
+export function brushSearchText(brush: BrushPreset): string {
+  const category = brushCategory(brush)
+  const clean = brush.params.cleanStroke
+  const aliases = [
+    clean ? 'basic pen pens simple clean smooth vector ink lineart' : '',
+    category === 'Pencils & Lineart' ? 'pen pens pencil lineart sketch ink' : '',
+    /pen/i.test(brush.name) ? 'pen pens' : '',
+    /pencil/i.test(brush.name) ? 'pencil' : '',
+    brush.family === 'Built-in' ? 'builtin default simple' : '',
+  ]
+  return [brush.name, brush.family, category, brush.description, clean ?? '', ...aliases]
+    .join(' ')
+    .toLowerCase()
+}
+
+/** Every search term must appear somewhere in the preset's searchable text. */
+export function matchesBrushQuery(brush: BrushPreset, query: string): boolean {
+  const terms = query.trim().toLowerCase().split(/\s+/).filter(Boolean)
+  if (!terms.length) return true
+  const text = brushSearchText(brush)
+  return terms.every((term) => text.includes(term) || (term.endsWith('s') && text.includes(term.slice(0, -1))))
 }
 
 const BRUSH_MAP = new Map(BRUSHES.map((brush) => [brush.id, brush]))
