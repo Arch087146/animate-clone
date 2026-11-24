@@ -17,12 +17,27 @@ interface Tutorial {
 
 const TUTORIALS: Tutorial[] = [
   {
+    id: 'tour', title: 'App tour: where everything is', icon: 'home', time: '4 min', level: 'All',
+    intro: 'A quick map of the editor so you always know which panel to open.',
+    steps: [
+      'Home screen: “New Animation” starts a blank project, “Templates” opens ready-made scenes (including Stick Figure Rig), and “Open” continues a saved JSON project.',
+      'Top row: the File/Edit/View/Insert/Modify/Timeline/Commands/Control menus are on the left; window controls and Export are on the right. Ctrl+Shift+G reopens these guides.',
+      'Left rail: the tool buttons. Hover for names and shortcuts (V select, B brush, M bones, G motion path). Right-click a tool to bring back its options bar.',
+      'Under the toolbar: Tool Options changes with the tool. Drawing shows the brush picker and Size/Opacity/Smooth/No lag; Bone shows Whole character, Select part and Speed.',
+      'Center: the stage is your canvas. Drag there to draw or pose. The timeline at the bottom shows the current frame and playhead.',
+      'Right side: Properties holds shape/bone settings and Bone Rigging controls; Library holds reusable symbols. Click the tab names to switch panels.',
+      'Bottom timeline: scrub the ruler to change frames, press F6 or Add pose for the next pose, Enter to play, and use the onion-skin/grid/bones buttons above it for guides.',
+    ],
+    tip: 'Lost a panel? Right-click any tool to reopen its options, or press Ctrl+Shift+G to bring back this guide list.',
+    try: 'stickman', tool: 'selection',
+  },
+  {
     id: 'first', title: 'Your first animation', icon: 'rocket', time: '3 min', level: 'Beginner',
     intro: 'Make a shape move across the stage using two keyframes and a motion tween.',
     steps: [
       'Choose “New Animation” on the home screen to open a blank document.',
       'Pick the Oval tool from the toolbar and drag on the stage to draw a ball.',
-      'In the timeline, click frame 1, then press F6 to add a keyframe at frame 20.',
+      'In the timeline, click frame 1, then press F6 to add the next pose keyframe. Speed controls how far the playhead jumps.',
       'Move the ball to a new position with the Selection tool.',
       'Select frame 1, choose Motion Tween in the Properties panel, then press Enter to play.',
     ],
@@ -108,7 +123,7 @@ const TUTORIALS: Tutorial[] = [
     intro: 'Work faster with the shortcuts used throughout the app.',
     steps: [
       'Tools: V select · A subselect · L lasso · P pen · T text · N line · R rectangle · O oval · Y pencil · B brush · E eraser · S ink bottle · K paint bucket · I eyedropper · H hand · Z zoom · M bones.',
-      'Timeline: F5 insert frame · F6 keyframe · F7 blank keyframe · F8 convert to symbol · Enter play/pause.',
+      'Timeline: F5 insert frame · F6 add pose (uses Speed) · F7 blank keyframe · F8 convert to symbol · Enter play/pause.',
       'Editing: Ctrl+Z undo · Ctrl+Shift+Z redo · Ctrl+C copy · Ctrl+V paste · Ctrl+D duplicate · Delete remove.',
       'View: Ctrl+S save · Ctrl+O open · Ctrl+Enter publish · Ctrl++ / Ctrl+- zoom · Esc deselect.',
     ],
