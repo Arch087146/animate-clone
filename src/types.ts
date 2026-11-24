@@ -134,6 +134,8 @@ export interface Keyframe {
   label?: string
   /** Center-point tracks for tweened shapes, keyed by shape ID. */
   motionPaths?: Record<string, Point[]>
+  /** Normalized 0..1 draw times aligned with motionPaths, preserving mouse speed. */
+  motionPathTimes?: Record<string, number[]>
   /** Shapes that rotate to face the direction of their motion path. */
   motionPathOrient?: Record<string, boolean>
 }
@@ -186,6 +188,8 @@ export interface ToolSettings {
   bold: boolean
   italic: boolean
   motionPathDuration: number
+  motionPathSpeed: number
+  motionPathUseDrawingSpeed: boolean
   motionPathOrient: boolean
 }
 
@@ -206,6 +210,8 @@ export const createToolSettings = (): ToolSettings => ({
   bold: true,
   italic: false,
   motionPathDuration: 30,
+  motionPathSpeed: 1,
+  motionPathUseDrawingSpeed: true,
   motionPathOrient: false,
 })
 

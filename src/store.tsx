@@ -86,8 +86,8 @@ export type Action =
   | { type: 'SET_KEYFRAME_TWEEN'; tween: Keyframe['tween'] }
   | { type: 'SET_KEYFRAME_EASE'; ease: number }
   | { type: 'SET_KEYFRAME_LABEL'; label: string }
-  | { type: 'SET_MOTION_PATH'; layerId: string; shapeId: string; points: Point[] }
-  | { type: 'UPDATE_MOTION_PATH'; layerId: string; shapeId: string; points: Point[] }
+  | { type: 'SET_MOTION_PATH'; layerId: string; shapeId: string; points: Point[]; times?: number[] }
+  | { type: 'UPDATE_MOTION_PATH'; layerId: string; shapeId: string; points: Point[]; times?: number[] }
   | { type: 'REMOVE_MOTION_PATH'; layerId: string; shapeId: string }
   | { type: 'SET_PROJECT_PROP'; prop: keyof Project; value: string | number }
   | { type: 'LOAD_PROJECT'; project: Project }
@@ -160,17 +160,59 @@ const withShapeCenter = (shape: Shape, center: Point): Shape => {
   }
 }
 
-const normalizeMotionPath = (points: Point[], start: Point, end: Point): Point[] => {
-  const clean = points
+const clamp01 = (value: number) => Math.max(0, Math.min(1, value))
+
+const normalizeMotionPathWithTimes = (
+  points: Point[],
+  start: Point,
+  end: Point,
+  rawTimes?: number[],
+): { points: Point[]; times: number[] } => {
+  const rounded = points
     .map((p) => ({ x: Math.round(p.x * 100) / 100, y: Math.round(p.y * 100) / 100 }))
-    .filter((p, i, arr) => i === 0 || Math.hypot(p.x - arr[i - 1].x, p.y - arr[i - 1].y) > 0.5)
-  if (clean.length < 2) clean.push({ ...start }, { ...end })
-  if (Math.hypot(clean[0].x - start.x, clean[0].y - start.y) > 0.5) clean.unshift({ ...start })
-  else clean[0] = { ...start }
-  const last = clean[clean.length - 1]
-  if (Math.hypot(last.x - end.x, last.y - end.y) > 0.5) clean.push({ ...end })
-  else clean[clean.length - 1] = { ...end }
-  return clean
+  const kept: number[] = []
+  rounded.forEach((p, i) => {
+    const previous = kept.length ? rounded[kept[kept.length - 1]] : null
+    if (!previous || Math.hypot(p.x - previous.x, p.y - previous.y) > 0.5) kept.push(i)
+  })
+
+  let clean = kept.map((i) => rounded[i])
+  let times = rawTimes && rawTimes.length === points.length
+    ? kept.map((i) => Math.max(0, rawTimes[i]))
+    : undefined
+
+  if (clean.length < 2) {
+    clean = [{ ...start }, { ...end }]
+    times = [0, 1]
+  }
+  if (Math.hypot(clean[0].x - start.x, clean[0].y - start.y) > 0.5) {
+    clean.unshift({ ...start })
+    times?.unshift(0)
+  } else clean[0] = { ...start }
+
+  const lastIndex = clean.length - 1
+  const last = clean[lastIndex]
+  if (Math.hypot(last.x - end.x, last.y - end.y) > 0.5) {
+    clean.push({ ...end })
+    times?.push((times[times.length - 1] ?? 0) + 1)
+  } else clean[lastIndex] = { ...end }
+
+  if (!times || times.length !== clean.length) {
+    let travelled = 0
+    times = clean.map((p, i) => {
+      if (i > 0) travelled += Math.hypot(p.x - clean[i - 1].x, p.y - clean[i - 1].y)
+      return travelled
+    })
+  }
+  const monotonic: number[] = []
+  times.forEach((value, i) => {
+    monotonic.push(Math.max(0, value, i > 0 ? monotonic[i - 1] + 0.001 : 0))
+  })
+  const total = Math.max(...monotonic, 0)
+  return {
+    points: clean,
+    times: monotonic.map((value, i) => total > 0 ? clamp01(value / total) : i / Math.max(1, clean.length - 1)),
+  }
 }
 
 const cloneMotionPaths = (
@@ -181,6 +223,18 @@ const cloneMotionPaths = (
   const result: NonNullable<Keyframe['motionPaths']> = {}
   Object.entries(paths).forEach(([id, points]) => {
     result[shapeIds.get(id) ?? id] = points.map((p) => ({ ...p }))
+  })
+  return result
+}
+
+const cloneMotionPathTimes = (
+  timesByShape: Keyframe['motionPathTimes'],
+  shapeIds: Map<string, string>,
+): Keyframe['motionPathTimes'] => {
+  if (!timesByShape) return undefined
+  const result: NonNullable<Keyframe['motionPathTimes']> = {}
+  Object.entries(timesByShape).forEach(([id, times]) => {
+    result[shapeIds.get(id) ?? id] = [...times]
   })
   return result
 }
@@ -208,6 +262,8 @@ const cloneFrameKeyframe = (source: Keyframe | null, frame: number): Keyframe =>
   keyframe.label = source?.label
   const paths = cloneMotionPaths(source?.motionPaths, shapeIds)
   if (paths) keyframe.motionPaths = paths
+  const pathTimes = cloneMotionPathTimes(source?.motionPathTimes, shapeIds)
+  if (pathTimes) keyframe.motionPathTimes = pathTimes
   if (source?.motionPathOrient) {
     const orient: NonNullable<Keyframe['motionPathOrient']> = {}
     Object.entries(source.motionPathOrient).forEach(([id, value]) => { orient[shapeIds.get(id) ?? id] = value })
@@ -230,6 +286,9 @@ function ensureKeyframe(project: Project, layer: Layer, frame: number): { layer:
     keyframe.label = previous.label
     if (previous.motionPaths) {
       keyframe.motionPaths = Object.fromEntries(Object.entries(previous.motionPaths).map(([id, pts]) => [id, pts.map((p) => ({ ...p }))]))
+    }
+    if (previous.motionPathTimes) {
+      keyframe.motionPathTimes = Object.fromEntries(Object.entries(previous.motionPathTimes).map(([id, ts]) => [id, [...ts]]))
     }
     if (previous.motionPathOrient) keyframe.motionPathOrient = { ...previous.motionPathOrient }
   }
@@ -734,6 +793,8 @@ function reducer(store: Store, action: Action): Store {
           }
           const paths = cloneMotionPaths(f.motionPaths, shapeIds)
           if (paths) copy.motionPaths = paths
+          const pathTimes = cloneMotionPathTimes(f.motionPathTimes, shapeIds)
+          if (pathTimes) copy.motionPathTimes = pathTimes
           if (f.motionPathOrient) {
             const orient: NonNullable<Keyframe['motionPathOrient']> = {}
             Object.entries(f.motionPathOrient).forEach(([id, value]) => { orient[shapeIds.get(id) ?? id] = value })
@@ -772,6 +833,9 @@ function reducer(store: Store, action: Action): Store {
         keyframe.duration = Math.max(1, nextStart - frame)
         if (!action.blank && previous?.motionPaths) {
           keyframe.motionPaths = Object.fromEntries(Object.entries(previous.motionPaths).map(([id, pts]) => [id, pts.map((p) => ({ ...p }))]))
+          keyframe.motionPathTimes = previous.motionPathTimes
+            ? Object.fromEntries(Object.entries(previous.motionPathTimes).map(([id, ts]) => [id, [...ts]]))
+            : undefined
           keyframe.motionPathOrient = previous.motionPathOrient ? { ...previous.motionPathOrient } : undefined
         }
         frames[frame] = keyframe
@@ -941,7 +1005,9 @@ function reducer(store: Store, action: Action): Store {
     case 'SET_MOTION_PATH': {
       const { layerId, shapeId, points } = action
       if (points.length < 2) return store
-      const duration = Math.max(2, Math.round(state.toolSettings.motionPathDuration || 30))
+      const baseDuration = Math.max(5, Math.min(120, Math.round(state.toolSettings.motionPathDuration || 30)))
+      const speed = Math.max(0.25, Math.min(4, Number(state.toolSettings.motionPathSpeed) || 1))
+      const duration = Math.max(2, Math.round(baseDuration / speed))
       const result = mutate(store, (project) => {
         const sourceLayer = project.layers.find((l) => l.id === layerId)
         if (!sourceLayer || sourceLayer.locked) return project
@@ -953,7 +1019,6 @@ function reducer(store: Store, action: Action): Store {
 
         let working = project
         let frames = [...sourceLayer.frames]
-        const startCenter = shapeCenter(sourceShape)
         let endFrame = -1
         for (let i = idx + 1; i < frames.length; i++) {
           if (frames[i]) { endFrame = i; break }
@@ -966,12 +1031,14 @@ function reducer(store: Store, action: Action): Store {
           }
         }
 
+        const normalized = normalizeMotionPathWithTimes(points, points[0], points[points.length - 1], action.times)
+        const path = normalized.points
+        const endPoint = path[path.length - 1]
+        const startPoint = path[0]
+        const sourceShapes = sourceKf.shapes.map((s) => s.id === shapeId ? withShapeCenter(s, startPoint) : s)
+
         const endKf = frames[endFrame]
         const endShape = endKf?.shapes.find((s) => s.id === shapeId)
-        const endCenter = endShape ? shapeCenter(endShape) : points[points.length - 1]
-        const path = normalizeMotionPath(points, startCenter, endCenter)
-        const endPoint = path[path.length - 1]
-
         if (endShape && endKf) {
           frames[endFrame] = {
             ...endKf,
@@ -987,7 +1054,7 @@ function reducer(store: Store, action: Action): Store {
             bones: cloneBones(endKf.bones),
           }
         } else {
-          const endShapes = sourceKf.shapes.map((s) =>
+          const endShapes = sourceShapes.map((s) =>
             withShapeCenter(cloneShapes([s])[0], s.id === shapeId ? endPoint : shapeCenter(s)))
           const newEnd = createKeyframe(endFrame, endShapes, cloneBones(sourceKf.bones))
           newEnd.duration = Math.max(1, working.totalFrames - endFrame)
@@ -996,11 +1063,17 @@ function reducer(store: Store, action: Action): Store {
 
         const orient = { ...(sourceKf.motionPathOrient ?? {}) }
         orient[shapeId] = state.toolSettings.motionPathOrient
+        const pathTimes = { ...(sourceKf.motionPathTimes ?? {}) }
+        if (state.toolSettings.motionPathUseDrawingSpeed !== false) pathTimes[shapeId] = normalized.times
+        else delete pathTimes[shapeId]
+
         frames[idx] = {
           ...sourceKf,
+          shapes: sourceShapes,
           tween: 'motion',
           duration: Math.max(1, endFrame - idx),
           motionPaths: { ...(sourceKf.motionPaths ?? {}), [shapeId]: path },
+          motionPathTimes: Object.keys(pathTimes).length ? pathTimes : undefined,
           motionPathOrient: orient,
         }
         return mapLayer(working, layerId, (l) => ({ ...l, frames }))
@@ -1017,12 +1090,15 @@ function reducer(store: Store, action: Action): Store {
         const frames = [...layer.frames]
         const kf = frames[idx]!
         if (!kf.motionPaths?.[action.shapeId]) return project
+        const pathTimes = { ...(kf.motionPathTimes ?? {}) }
+        if (action.times?.length === action.points.length) pathTimes[action.shapeId] = action.times.map((t) => clamp01(t))
         frames[idx] = {
           ...kf,
           motionPaths: {
             ...kf.motionPaths,
             [action.shapeId]: action.points.map((p) => ({ ...p })),
           },
+          motionPathTimes: Object.keys(pathTimes).length ? pathTimes : undefined,
         }
         return mapLayer(project, layer.id, (l) => ({ ...l, frames }))
       })
@@ -1038,6 +1114,8 @@ function reducer(store: Store, action: Action): Store {
         if (!kf.motionPaths?.[action.shapeId]) return project
         const paths = { ...kf.motionPaths }
         delete paths[action.shapeId]
+        const pathTimes = { ...(kf.motionPathTimes ?? {}) }
+        delete pathTimes[action.shapeId]
         const orient = { ...(kf.motionPathOrient ?? {}) }
         delete orient[action.shapeId]
         const remaining = Object.keys(paths).length
@@ -1045,6 +1123,7 @@ function reducer(store: Store, action: Action): Store {
           ...kf,
           tween: remaining ? kf.tween : 'none',
           motionPaths: remaining ? paths : undefined,
+          motionPathTimes: remaining && Object.keys(pathTimes).length ? pathTimes : undefined,
           motionPathOrient: remaining ? orient : undefined,
         }
         return mapLayer(project, layer.id, (l) => ({ ...l, frames }))

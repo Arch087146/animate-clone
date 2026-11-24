@@ -69,24 +69,31 @@ function interpolateShape(a: Shape, b: Shape | undefined, t: number, shapeTween:
   return base
 }
 
-/** Samples a polyline track at 0..1. Angle is the tangent in radians. */
-export function pointOnPath(points: Point[], t: number): { point: Point; angle: number } | null {
+/** Samples a polyline track at 0..1. Times preserve drawn mouse speed when available. */
+export function pointOnPath(
+  points: Point[],
+  t: number,
+  times?: number[],
+): { point: Point; angle: number } | null {
   if (!points.length) return null
   if (points.length === 1) return { point: points[0], angle: 0 }
-  const lengths: number[] = []
+  const weights: number[] = []
   let total = 0
   for (let i = 1; i < points.length; i++) {
-    const length = Math.hypot(points[i].x - points[i - 1].x, points[i].y - points[i - 1].y)
-    lengths.push(length)
-    total += length
+    const distance = Math.hypot(points[i].x - points[i - 1].x, points[i].y - points[i - 1].y)
+    const weight = times && times.length === points.length
+      ? Math.max(0.001, times[i] - times[i - 1])
+      : distance
+    weights.push(weight)
+    total += weight
   }
   if (total <= 0) return { point: points[0], angle: 0 }
   const target = Math.max(0, Math.min(1, t)) * total
   let travelled = 0
-  for (let i = 0; i < lengths.length; i++) {
-    const length = lengths[i]
-    if (travelled + length >= target || i === lengths.length - 1) {
-      const local = length > 0 ? Math.min(1, (target - travelled) / length) : 0
+  for (let i = 0; i < weights.length; i++) {
+    const weight = weights[i]
+    if (travelled + weight >= target || i === weights.length - 1) {
+      const local = weight > 0 ? Math.min(1, Math.max(0, (target - travelled) / weight)) : 0
       const a = points[i]
       const b = points[i + 1]
       return {
@@ -94,7 +101,7 @@ export function pointOnPath(points: Point[], t: number): { point: Point; angle: 
         angle: Math.atan2(b.y - a.y, b.x - a.x),
       }
     }
-    travelled += length
+    travelled += weight
   }
   const last = points[points.length - 1]
   return { point: last, angle: 0 }
@@ -125,7 +132,7 @@ export function getRenderShapes(project: Project, frame: number): RenderShape[] 
         let rendered = interpolateShape(s, nextById.get(s.id), t, kf.tween === 'shape')
         const path = kf.motionPaths?.[s.id]
         if (path && path.length > 1) {
-          const sample = pointOnPath(path, t)
+          const sample = pointOnPath(path, t, kf.motionPathTimes?.[s.id])
           if (sample) {
             rendered = {
               ...rendered,

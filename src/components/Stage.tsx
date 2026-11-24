@@ -18,8 +18,8 @@ type DragMode =
   | { kind: 'point'; index: number; origin: Shape; layerId: string }
   | { kind: 'move'; start: Point; origin: Shape; layerId: string }
   | { kind: 'resize'; start: Point; origin: Shape; layerId: string; handle: string }
-  | { kind: 'motionPathDraw'; layerId: string; shapeId: string; points: Point[] }
-  | { kind: 'motionPathEdit'; layerId: string; shapeId: string; points: Point[]; index: number }
+  | { kind: 'motionPathDraw'; layerId: string; shapeId: string; points: Point[]; times: number[]; startedAt: number }
+  | { kind: 'motionPathEdit'; layerId: string; shapeId: string; points: Point[]; times?: number[]; index: number }
   | { kind: 'pan'; start: Point; pan: Point }
 
 const HANDLES = ['nw', 'n', 'ne', 'e', 'se', 's', 'sw', 'w']
@@ -194,13 +194,15 @@ export function Stage({ compact = false }: { compact?: boolean } = {}) {
     }
     if (draftBone) drawBones(ctx, [draftBone], draftBone.id, zoom)
 
-    const drawGuide = (points: Point[], color: string, closed: boolean) => {
+    const drawGuide = (points: Point[], color: string, closed: boolean, pencil = false) => {
       if (!points.length) return
       ctx.save()
       ctx.strokeStyle = color
       ctx.fillStyle = '#fff'
-      ctx.lineWidth = 1 / zoom
-      ctx.setLineDash([4 / zoom, 3 / zoom])
+      ctx.lineWidth = (pencil ? 1.5 : 1) / zoom
+      ctx.lineCap = 'round'
+      ctx.lineJoin = 'round'
+      if (!pencil) ctx.setLineDash([4 / zoom, 3 / zoom])
       ctx.beginPath()
       ctx.moveTo(points[0].x, points[0].y)
       for (let i = 1; i < points.length; i++) ctx.lineTo(points[i].x, points[i].y)
@@ -224,7 +226,7 @@ export function Stage({ compact = false }: { compact?: boolean } = {}) {
         const color = kf.tween === 'shape' ? '#43a047' : '#1473e6'
         const path = kf.motionPaths?.[selection.shapeId]
         if (path && path.length > 1) {
-          drawGuide(path, color, false)
+          drawGuide(path, color, false, true)
           const tip = path[path.length - 1]
           const prev = path[path.length - 2]
           const angle = Math.atan2(tip.y - prev.y, tip.x - prev.x)
@@ -236,38 +238,13 @@ export function Stage({ compact = false }: { compact?: boolean } = {}) {
           ctx.lineTo(tip.x - 8 * Math.cos(angle + 0.4) / zoom, tip.y - 8 * Math.sin(angle + 0.4) / zoom)
           ctx.closePath(); ctx.fill()
           ctx.restore()
-        } else {
-          let nextKf: ReturnType<typeof getActiveKeyframe> = null
-          for (let i = idx + 1; i < layer!.frames.length; i++) {
-            if (layer!.frames[i]) { nextKf = layer!.frames[i]; break }
-          }
-          const to = nextKf?.shapes.find((s) => s.id === selection.shapeId)
-          if (to) {
-            const a = { x: from.x + from.width / 2, y: from.y + from.height / 2 }
-            const b = { x: to.x + to.width / 2, y: to.y + to.height / 2 }
-            ctx.save()
-            ctx.strokeStyle = color
-            ctx.fillStyle = color
-            ctx.lineWidth = 1.5 / zoom
-            ctx.setLineDash([5 / zoom, 4 / zoom])
-            ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke()
-            ctx.setLineDash([])
-            for (const pt of [a, b]) { ctx.beginPath(); ctx.arc(pt.x, pt.y, 3 / zoom, 0, Math.PI * 2); ctx.fill() }
-            const angle = Math.atan2(b.y - a.y, b.x - a.x)
-            ctx.beginPath()
-            ctx.moveTo(b.x, b.y)
-            ctx.lineTo(b.x - 8 * Math.cos(angle - 0.4) / zoom, b.y - 8 * Math.sin(angle - 0.4) / zoom)
-            ctx.lineTo(b.x - 8 * Math.cos(angle + 0.4) / zoom, b.y - 8 * Math.sin(angle + 0.4) / zoom)
-            ctx.closePath(); ctx.fill()
-            ctx.restore()
-          }
         }
       }
     }
 
     drawGuide(penPoints, '#1473e6', false)
     drawGuide(lassoPoints, '#e53935', true)
-    if (motionPathDraft) drawGuide(motionPathDraft, '#8e24aa', false)
+    if (motionPathDraft) drawGuide(motionPathDraft, '#8e24aa', false, true)
 
     const selectedLayer = project.layers.find((l) => l.id === selection.layerId)
     const kf = selectedLayer ? getActiveKeyframe(selectedLayer, currentFrame) : null
@@ -443,17 +420,17 @@ export function Stage({ compact = false }: { compact?: boolean } = {}) {
     }
 
     if (tool === 'motionPath') {
-      const layerId = selection.layerId ?? picked?.layerId ?? project.layers[0]?.id
-      const shapeId = selection.shapeId ?? picked?.shape.id
+      const layerId = picked?.layerId ?? selection.layerId ?? project.layers[0]?.id
+      const shapeId = picked?.shape.id ?? selection.shapeId
       if (!layerId || !shapeId) {
-        dispatch({ type: 'STATUS', message: 'Select an object first, then drag its motion path' })
+        dispatch({ type: 'STATUS', message: 'Draw over an object, or select one, then sketch its path' })
         return
       }
       const layer = project.layers.find((l) => l.id === layerId)
       const kf = layer ? getActiveKeyframe(layer, currentFrame) : null
       const shape = kf?.shapes.find((s) => s.id === shapeId) ?? picked?.shape
       if (!shape) {
-        dispatch({ type: 'STATUS', message: 'Select an object first, then drag its motion path' })
+        dispatch({ type: 'STATUS', message: 'Draw over an object, or select one, then sketch its path' })
         return
       }
       if (selection.layerId !== layerId || selection.shapeId !== shapeId) {
@@ -464,14 +441,21 @@ export function Stage({ compact = false }: { compact?: boolean } = {}) {
         const handleIndex = existing.findIndex((pt) => Math.hypot(pt.x - p.x, pt.y - p.y) <= 8 / zoom)
         if (handleIndex >= 0) {
           const points = existing.map((pt) => ({ ...pt }))
-          dragRef.current = { kind: 'motionPathEdit', layerId, shapeId, points, index: handleIndex }
+          dragRef.current = {
+            kind: 'motionPathEdit', layerId, shapeId, points,
+            times: kf?.motionPathTimes?.[shapeId], index: handleIndex,
+          }
           setMotionPathDraft(points)
           return
         }
       }
-      const start = existing?.length ? { ...existing[0] } : { x: shape.x + shape.width / 2, y: shape.y + shape.height / 2 }
-      const points = [start, p]
-      dragRef.current = { kind: 'motionPathDraw', layerId, shapeId, points }
+      // Sketching over the object starts at its center; sketching elsewhere
+      // starts exactly where the pencil touched so the object can jump anywhere.
+      const start = pointInShape(shape, p)
+        ? { x: shape.x + shape.width / 2, y: shape.y + shape.height / 2 }
+        : { x: p.x, y: p.y }
+      const points = [start]
+      dragRef.current = { kind: 'motionPathDraw', layerId, shapeId, points, times: [0], startedAt: performance.now() }
       setMotionPathDraft(points)
       return
     }
@@ -725,9 +709,10 @@ export function Stage({ compact = false }: { compact?: boolean } = {}) {
       dispatch({ type: 'SET_BONES', bones, shapePatches })
     } else if (drag.kind === 'motionPathDraw') {
       const last = drag.points[drag.points.length - 1]
-      if (Math.hypot(p.x - last.x, p.y - last.y) < 3 / zoom) return
+      if (Math.hypot(p.x - last.x, p.y - last.y) < 2 / zoom) return
       const points = [...drag.points, p]
-      dragRef.current = { ...drag, points }
+      const times = [...drag.times, Math.max(drag.times[drag.times.length - 1] + 1, performance.now() - drag.startedAt)]
+      dragRef.current = { ...drag, points, times }
       setMotionPathDraft(points)
     } else if (drag.kind === 'motionPathEdit') {
       const points = drag.points.map((pt, i) => i === drag.index ? p : pt)
@@ -773,8 +758,19 @@ export function Stage({ compact = false }: { compact?: boolean } = {}) {
     }
   }
 
-  const onPointerUp = () => {
-    const drag = dragRef.current
+  const onPointerUp = (e?: React.PointerEvent<HTMLCanvasElement>) => {
+    let drag = dragRef.current
+    if (drag.kind === 'motionPathDraw' && e) {
+      const p = toWorld(e.clientX, e.clientY)
+      const last = drag.points[drag.points.length - 1]
+      if (Math.hypot(p.x - last.x, p.y - last.y) >= 2 / zoom) {
+        drag = {
+          ...drag,
+          points: [...drag.points, p],
+          times: [...drag.times, Math.max(drag.times[drag.times.length - 1] + 1, performance.now() - drag.startedAt)],
+        }
+      }
+    }
     dragRef.current = { kind: 'none' }
     if (drag.kind === 'draw' && draft && draft.width > 2 && draft.height > 2) {
       dispatch({ type: 'ADD_SHAPE', shape: { ...draft, id: uid('shape') } })
@@ -794,10 +790,10 @@ export function Stage({ compact = false }: { compact?: boolean } = {}) {
       }) })
     }
     if (drag.kind === 'motionPathDraw' && drag.points.length > 1) {
-      dispatch({ type: 'SET_MOTION_PATH', layerId: drag.layerId, shapeId: drag.shapeId, points: drag.points })
+      dispatch({ type: 'SET_MOTION_PATH', layerId: drag.layerId, shapeId: drag.shapeId, points: drag.points, times: drag.times })
     }
     if (drag.kind === 'motionPathEdit' && drag.points.length > 1) {
-      dispatch({ type: 'UPDATE_MOTION_PATH', layerId: drag.layerId, shapeId: drag.shapeId, points: drag.points })
+      dispatch({ type: 'UPDATE_MOTION_PATH', layerId: drag.layerId, shapeId: drag.shapeId, points: drag.points, times: drag.times })
     }
     if (drag.kind === 'motionPathDraw' || drag.kind === 'motionPathEdit') setMotionPathDraft(null)
     if (drag.kind === 'erase') dispatch({ type: 'END_TRANSFORM' })

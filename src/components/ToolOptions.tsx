@@ -108,6 +108,8 @@ export function ToolOptions() {
             ? <>
                 <Icon name="motionPath" size={18} />
                 <Slider label="Frames" value={s.motionPathDuration} min={5} max={120} onChange={(v) => set('motionPathDuration', v)} />
+                <Slider label="Speed" value={s.motionPathSpeed} min={0.25} max={4} step={0.25} suffix="x" onChange={(v) => set('motionPathSpeed', v)} />
+                <label className="tool-option-check"><input type="checkbox" checked={s.motionPathUseDrawingSpeed} onChange={() => set('motionPathUseDrawingSpeed', !s.motionPathUseDrawingSpeed)} /> Match mouse speed</label>
                 <label className="tool-option-check"><input type="checkbox" checked={s.motionPathOrient} onChange={() => set('motionPathOrient', !s.motionPathOrient)} /> Orient to path</label>
                 {(() => {
                   const layer = state.project.layers.find((l) => l.id === state.selection.layerId)
@@ -122,7 +124,7 @@ export function ToolOptions() {
                     </div>
                   )
                 })()}
-                <span className="tool-opt-note">Drag on the stage to draw the track. Drag a square handle to reshape it.</span>
+                <span className="tool-opt-note">Sketch freehand like a pencil. Draw over an object to start at its center, or anywhere to move it there. Match mouse speed keeps slow strokes slow.</span>
               </>
           : tool === 'bone'
             ? <BoneOptions compact />
