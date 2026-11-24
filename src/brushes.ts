@@ -9,7 +9,11 @@ export type BrushFamily =
 
 export type DabTexture = 'smooth' | 'paper' | 'canvas' | 'grit' | 'rough' | 'fibrous' | 'crackle'
 export type DabStamp = 'none' | 'dot' | 'square' | 'leaf' | 'grass' | 'star' | 'brick' | 'splat' | 'cloud' | 'ring' | 'scale' | 'scribble'
-export type CleanStroke = 'round' | 'taper' | 'highlighter'
+export type CleanStroke =
+  | 'round' | 'fine' | 'ballpoint' | 'gel' | 'ink' | 'brush'
+  | 'felt' | 'marker' | 'highlighter' | 'technical' | 'sign'
+  | 'calligraphy' | 'journal' | 'sketch' | 'whiteboard' | 'storyboard'
+  | 'taper'
 
 export interface BrushParams {
   /** Base dab diameter in stage pixels. */
@@ -183,19 +187,32 @@ type FamilySpec = {
   vary?: (i: number, p: BrushParams, n: number) => BrushParams
 }
 
+/** Explicit per-pen styling so the Basic family does not collapse into one look. */
+const BASIC_PENS: Array<{ cleanStroke: CleanStroke; size: number } & Partial<BrushParams>> = [
+  { cleanStroke: 'round', size: 6 },
+  { cleanStroke: 'fine', size: 2.2 },
+  { cleanStroke: 'ballpoint', size: 3.4, opacity: 0.95 },
+  { cleanStroke: 'gel', size: 5.5, opacity: 0.92, glow: 3 },
+  { cleanStroke: 'ink', size: 5, taper: 0.65, velocitySize: 0.35 },
+  { cleanStroke: 'brush', size: 12, taper: 0.92, velocitySize: 0.7 },
+  { cleanStroke: 'felt', size: 9, aspect: 0.7 },
+  { cleanStroke: 'marker', size: 16, opacity: 0.8, aspect: 0.55 },
+  { cleanStroke: 'highlighter', size: 22, opacity: 0.28, aspect: 0.55 },
+  { cleanStroke: 'technical', size: 1.8 },
+  { cleanStroke: 'sign', size: 8, taper: 0.3 },
+  { cleanStroke: 'calligraphy', size: 14, rotation: 0 },
+  { cleanStroke: 'journal', size: 5.5, opacity: 0.95 },
+  { cleanStroke: 'sketch', size: 4.5, taper: 0.45, velocitySize: 0.4 },
+  { cleanStroke: 'whiteboard', size: 13, opacity: 1 },
+  { cleanStroke: 'storyboard', size: 10, aspect: 0.45, rotation: 0 },
+]
+
 const specs: FamilySpec[] = [
   {
     family: 'Basic', description: 'Clean, dependable pens for everyday lines, notes, and sketches.',
     names: 'Round Pen,Fine Liner,Ballpoint,Gel Pen,Ink Pen,Brush Pen,Felt Tip,Marker,Highlighter,Technical Pen,Sign Pen,Calligraphy Pen,Journal Pen,Sketch Pen,Whiteboard Pen,Storyboard Pen'.split(','),
     base: { size: 6, hardness: 1, opacity: 1, spacing: 0.05, scatter: 0, rotation: 0, bristles: 1, flow: 1, grain: 0, taper: 0, softness: 0, aspect: 1, glow: 0, velocitySize: 0, velocityOpacity: 0, cleanStroke: 'round' },
-    ranges: { size: [2, 18] },
-    vary: (i, p) => ({
-      ...p,
-      cleanStroke: i === 8 ? 'highlighter' : [5, 11].includes(i) ? 'taper' : 'round',
-      opacity: i === 8 ? 0.35 : i === 7 ? 0.8 : i === 3 ? 0.95 : 1,
-      taper: [5, 11].includes(i) ? 0.55 : 0,
-      velocitySize: i === 5 ? 0.35 : i === 11 ? 0.5 : 0,
-    }),
+    vary: (i, p) => ({ ...p, ...BASIC_PENS[i % BASIC_PENS.length] }),
   },
   {
     family: 'Pencil', description: 'Sharp, grainy drawing pencils from hard to soft.',
@@ -794,7 +811,77 @@ function applyTexture(
   target.restore()
 }
 
-/** Clean vector pen rendering for the Basic family — no noise or dab seams. */
+/** Smooth centerline shared by the round pens. */
+function traceSmoothStroke(ctx: CanvasRenderingContext2D, points: Point[]) {
+  ctx.beginPath()
+  ctx.moveTo(points[0].x, points[0].y)
+  if (points.length === 2) {
+    ctx.lineTo(points[1].x, points[1].y)
+    return
+  }
+  for (let i = 1; i < points.length - 1; i++) {
+    const a = points[i]
+    const b = points[i + 1]
+    ctx.quadraticCurveTo(a.x, a.y, (a.x + b.x) / 2, (a.y + b.y) / 2)
+  }
+  const last = points[points.length - 1]
+  ctx.lineTo(last.x, last.y)
+}
+
+/** Fills a ribbon whose half-width can change along the stroke. */
+function fillRibbon(
+  ctx: CanvasRenderingContext2D,
+  points: Point[],
+  halfWidthAt: (index: number, angle: number) => number,
+) {
+  const left: Point[] = []
+  const right: Point[] = []
+  for (let i = 0; i < points.length; i++) {
+    const prev = points[Math.max(0, i - 1)]
+    const next = points[Math.min(points.length - 1, i + 1)]
+    const angle = points.length > 1 ? Math.atan2(next.y - prev.y, next.x - prev.x) : 0
+    const half = Math.max(0.4, halfWidthAt(i, angle))
+    const nx = -Math.sin(angle)
+    const ny = Math.cos(angle)
+    left.push({ x: points[i].x + nx * half, y: points[i].y + ny * half })
+    right.push({ x: points[i].x - nx * half, y: points[i].y - ny * half })
+  }
+  ctx.beginPath()
+  ctx.moveTo(left[0].x, left[0].y)
+  for (let i = 1; i < left.length; i++) ctx.lineTo(left[i].x, left[i].y)
+  for (let i = right.length - 1; i >= 0; i--) ctx.lineTo(right[i].x, right[i].y)
+  ctx.closePath()
+  ctx.fill()
+}
+
+/** Pressure-sensitive stroke used by ink, brush, sign, and sketch pens. */
+function strokeTapered(
+  ctx: CanvasRenderingContext2D,
+  points: Point[],
+  size: number,
+  taper: number,
+  velocitySize: number,
+) {
+  let maxSpeed = 0.0001
+  const speeds = points.slice(1).map((pt, i) => {
+    const d = Math.hypot(pt.x - points[i].x, pt.y - points[i].y)
+    maxSpeed = Math.max(maxSpeed, d)
+    return d
+  })
+  for (let i = 1; i < points.length; i++) {
+    const edge = (i / Math.max(1, points.length - 1)) * 2
+    const edgeFade = Math.min(edge, 2 - edge)
+    let pressure = 1 - taper * (1 - Math.pow(Math.max(0, edgeFade), 0.45))
+    pressure *= 1 - velocitySize * (speeds[i - 1] / maxSpeed) * 0.82
+    ctx.lineWidth = Math.max(0.6, size * Math.max(0.08, pressure))
+    ctx.beginPath()
+    ctx.moveTo(points[i - 1].x, points[i - 1].y)
+    ctx.lineTo(points[i].x, points[i].y)
+    ctx.stroke()
+  }
+}
+
+/** Clean vector pens: each nib has its own geometry, width, and finish. */
 function renderCleanStroke(
   ctx: CanvasRenderingContext2D,
   points: Point[],
@@ -804,15 +891,19 @@ function renderCleanStroke(
 ) {
   if (!points.length) return
   const p = brush.params
-  const size = Math.max(0.5, p.size * (options.sizeScale ?? 1))
+  const kind = p.cleanStroke ?? 'round'
+  const sizeScale = options.sizeScale ?? 1
+  const size = Math.max(0.5, p.size * sizeScale)
   const alpha = clamp01(p.opacity * p.flow * (options.flowScale ?? 1) * (options.opacityScale ?? 1))
+  const seed = hashSeed(options.seed ?? brush.id)
+
   ctx.save()
-  ctx.lineCap = 'round'
+  ctx.lineCap = kind === 'technical' ? 'butt' : 'round'
   ctx.lineJoin = 'round'
   ctx.strokeStyle = color
   ctx.fillStyle = color
   ctx.globalAlpha = alpha
-  if (p.cleanStroke === 'highlighter') ctx.globalCompositeOperation = 'multiply'
+  if (kind === 'highlighter') ctx.globalCompositeOperation = 'multiply'
 
   if (points.length === 1) {
     ctx.beginPath()
@@ -822,43 +913,98 @@ function renderCleanStroke(
     return
   }
 
-  if (p.cleanStroke === 'taper' && p.taper > 0) {
-    let maxSpeed = 0.0001
-    const speeds = points.slice(1).map((pt, i) => {
-      const d = Math.hypot(pt.x - points[i].x, pt.y - points[i].y)
-      maxSpeed = Math.max(maxSpeed, d)
-      return d
-    })
-    for (let i = 1; i < points.length; i++) {
-      const edge = (i / Math.max(1, points.length - 1)) * 2
-      const edgeFade = Math.min(edge, 2 - edge)
-      let pressure = 1 - p.taper * (1 - Math.pow(Math.max(0, edgeFade), 0.45))
-      pressure *= 1 - (p.velocitySize ?? 0) * (speeds[i - 1] / maxSpeed) * 0.82
-      ctx.lineWidth = Math.max(0.6, size * Math.max(0.08, pressure))
-      ctx.beginPath()
-      ctx.moveTo(points[i - 1].x, points[i - 1].y)
-      ctx.lineTo(points[i].x, points[i].y)
+  switch (kind) {
+    case 'ballpoint': {
+      ctx.globalAlpha = alpha * 0.38
+      ctx.lineWidth = size * 1.35
+      traceSmoothStroke(ctx, points)
+      ctx.stroke()
+      ctx.globalAlpha = alpha
+      ctx.lineWidth = size * 0.48
+      traceSmoothStroke(ctx, points)
+      ctx.stroke()
+      break
+    }
+    case 'gel': {
+      ctx.shadowColor = color
+      ctx.shadowBlur = Math.max(2, (p.glow ?? 3) * sizeScale)
+      ctx.globalAlpha = alpha * 0.45
+      ctx.lineWidth = size * 1.3
+      traceSmoothStroke(ctx, points)
+      ctx.stroke()
+      ctx.shadowBlur = 0
+      ctx.globalAlpha = alpha
+      ctx.lineWidth = size * 0.72
+      traceSmoothStroke(ctx, points)
+      ctx.stroke()
+      break
+    }
+    case 'ink':
+    case 'brush':
+    case 'sign':
+    case 'sketch':
+    case 'taper': {
+      let path = points
+      if (kind === 'sketch') {
+        path = points.map((pt, i) => ({
+          x: pt.x + (noise1(i * 0.73, seed) - 0.5) * size * 0.38,
+          y: pt.y + (noise1(i * 0.61, seed ^ 0x5bf03635) - 0.5) * size * 0.38,
+        }))
+      }
+      strokeTapered(ctx, path, size, p.taper, p.velocitySize ?? 0)
+      break
+    }
+    case 'felt':
+    case 'marker':
+    case 'highlighter':
+    case 'storyboard': {
+      const half = size * (p.aspect ?? 0.7) / 2
+      fillRibbon(ctx, points, () => half)
+      break
+    }
+    case 'calligraphy': {
+      const rotation = (p.rotation * Math.PI) / 180
+      fillRibbon(ctx, points, (_i, angle) =>
+        Math.max(size * 0.08, size * Math.abs(Math.sin(rotation - angle)) / 2))
+      break
+    }
+    case 'journal': {
+      ctx.globalAlpha = alpha * 0.9
+      ctx.lineWidth = size
+      traceSmoothStroke(ctx, points)
+      ctx.stroke()
+      ctx.globalAlpha = alpha * 0.35
+      ctx.lineWidth = Math.max(1, size * 0.28)
+      traceSmoothStroke(ctx, points.map((pt) => ({ x: pt.x + size * 0.12, y: pt.y - size * 0.12 })))
+      ctx.stroke()
+      ctx.globalAlpha = alpha
+      for (const end of [points[0], points[points.length - 1]]) {
+        ctx.beginPath()
+        ctx.arc(end.x, end.y, size * 0.32, 0, Math.PI * 2)
+        ctx.fill()
+      }
+      break
+    }
+    case 'whiteboard': {
+      ctx.shadowColor = color
+      ctx.shadowBlur = 0.8
+      ctx.globalAlpha = alpha * 0.32
+      ctx.lineWidth = size * 1.18
+      traceSmoothStroke(ctx, points)
+      ctx.stroke()
+      ctx.shadowBlur = 0
+      ctx.globalAlpha = alpha
+      ctx.lineWidth = size * 0.86
+      traceSmoothStroke(ctx, points)
+      ctx.stroke()
+      break
+    }
+    default: {
+      ctx.lineWidth = size
+      traceSmoothStroke(ctx, points)
       ctx.stroke()
     }
-    ctx.restore()
-    return
   }
-
-  ctx.lineWidth = size
-  ctx.beginPath()
-  ctx.moveTo(points[0].x, points[0].y)
-  if (points.length === 2) {
-    ctx.lineTo(points[1].x, points[1].y)
-  } else {
-    for (let i = 1; i < points.length - 1; i++) {
-      const a = points[i]
-      const b = points[i + 1]
-      ctx.quadraticCurveTo(a.x, a.y, (a.x + b.x) / 2, (a.y + b.y) / 2)
-    }
-    const last = points[points.length - 1]
-    ctx.lineTo(last.x, last.y)
-  }
-  ctx.stroke()
   ctx.restore()
 }
 
