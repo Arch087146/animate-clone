@@ -22,6 +22,7 @@ const CATEGORY_LABELS: Record<string, string> = {
   'Brushes & Glazing': 'Glazing',
   'Textured Brushes': 'Textured',
   'Textures & Effects': 'Effects',
+  'CC0 Tips': 'Tips',
 }
 
 const CATEGORY_COLORS: Record<string, string> = {
@@ -31,6 +32,7 @@ const CATEGORY_COLORS: Record<string, string> = {
   'Textured Brushes': '#6d4c41',
   Water: '#0277bd',
   'Textures & Effects': '#c62828',
+  'CC0 Tips': '#00897b',
 }
 
 const KRITA_CATEGORY_CHIPS = BRUSH_CATEGORIES

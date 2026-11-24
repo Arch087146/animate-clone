@@ -30,11 +30,11 @@ const TUTORIALS: Tutorial[] = [
     try: 'blank',
   },
   {
-    id: 'brushes', title: 'Draw with 37 CC0 Krita brushes', icon: 'brush', time: '4 min', level: 'Beginner',
-    intro: 'The pencil and brush tools use presets from David Revoy’s CC0 Krita brush bundle.',
+    id: 'brushes', title: 'Draw with 181 CC0 brushes', icon: 'brush', time: '4 min', level: 'Beginner',
+    intro: 'The pencil and brush tools use CC0 presets from David Revoy’s Krita bundle and the GIMP tip collection.',
     steps: [
       'Select the Pencil (Y) or Brush (B) tool. The options bar appears under the stage toolbar.',
-      'Click the brush preview to open the preset picker, then choose a category: Lineart, Essentials, Glazing, Textured, Water or Effects.',
+      'Click the brush preview to open the preset picker, then choose a category: Lineart, Essentials, Glazing, Textured, Water, Effects or Tips.',
       'Pick a preset from the grid and watch the live preview change.',
       'Set Size, Opacity, Flow, Spacing and Scatter with the sliders.',
       'Drag on the stage. Strokes keep their brush settings when you save and reopen the project.',

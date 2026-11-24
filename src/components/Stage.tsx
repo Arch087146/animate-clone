@@ -50,10 +50,10 @@ function stabilizerRadius(smoothing: number, brushSize: number, zoom: number): n
   return (2 + brushSize * 0.7 + amount * 18) / Math.max(0.25, zoom)
 }
 
-function appendStrokePoint(points: Point[], point: Point, minStep: number): Point[] {
+function appendStrokePoint(points: Point[], point: Point, minStep: number): void {
   const last = points[points.length - 1]
-  if (last && Math.hypot(point.x - last.x, point.y - last.y) < minStep) return points
-  return [...points, point]
+  if (last && Math.hypot(point.x - last.x, point.y - last.y) < minStep) return
+  points.push(point)
 }
 
 /** Krita-style stabilizer: the stroke follows the cursor once it leaves a small radius. */
@@ -63,23 +63,24 @@ function addStabilizedSample(
   smoothing: number,
   brushSize: number,
   zoom: number,
-): PathDragMode {
+): void {
+  drag.raw = raw
   const radius = stabilizerRadius(smoothing, brushSize, zoom)
   const minStep = minStrokeStep(brushSize, zoom)
   const dx = raw.x - drag.anchor.x
   const dy = raw.y - drag.anchor.y
   const distance = Math.hypot(dx, dy)
-  if (distance < minStep) return { ...drag, raw }
+  if (distance < minStep) return
   const travel = Math.max(0, distance - radius)
-  if (travel === 0) return { ...drag, raw }
+  if (travel === 0) return
   const follow = 0.72 - clamp(smoothing, 0, 1) * 0.5
   const pull = Math.min(1, follow + travel / (radius * 3.5))
   const move = travel * pull
-  const anchor = {
+  drag.anchor = {
     x: drag.anchor.x + (dx / distance) * move,
     y: drag.anchor.y + (dy / distance) * move,
   }
-  return { ...drag, raw, anchor, points: appendStrokePoint(drag.points, anchor, minStep) }
+  appendStrokePoint(drag.points, drag.anchor, minStep)
 }
 
 /** Bring the stabilized tail to the release point so the stroke ends under the cursor. */
@@ -88,14 +89,13 @@ function settleStroke(
   smoothing: number,
   brushSize: number,
   zoom: number,
-): PathDragMode {
+): void {
   const distance = Math.hypot(drag.raw.x - drag.anchor.x, drag.raw.y - drag.anchor.y)
-  if (distance < minStrokeStep(brushSize, zoom)) return drag
+  if (distance < minStrokeStep(brushSize, zoom)) return
   const radius = Math.max(1, stabilizerRadius(smoothing, brushSize, zoom))
   const steps = Math.min(12, Math.max(1, Math.ceil(distance / (radius * 0.6))))
-  const points = [...drag.points]
-  for (let i = 1; i <= steps; i++) points.push(lerpPoint(drag.anchor, drag.raw, i / steps))
-  return { ...drag, anchor: drag.raw, points }
+  for (let i = 1; i <= steps; i++) drag.points.push(lerpPoint(drag.anchor, drag.raw, i / steps))
+  drag.anchor = drag.raw
 }
 
 function rotatePoint(p: Point, origin: Point, angle: number): Point {
@@ -193,6 +193,7 @@ export function Stage({ compact = false }: { compact?: boolean } = {}) {
   const getBrushName = (id: string) => getBrush(id).name
   const containerRef = useRef<HTMLDivElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
+  const overlayRef = useRef<HTMLCanvasElement>(null)
   const dragRef = useRef<DragMode>({ kind: 'none' })
   const [draft, setDraft] = useState<Shape | null>(null)
   const [draftBone, setDraftBone] = useState<Bone | null>(null)
@@ -203,8 +204,7 @@ export function Stage({ compact = false }: { compact?: boolean } = {}) {
   const pathDraftFrameRef = useRef<number | null>(null)
   const pendingPathDraftRef = useRef<{ id: string; points: Point[] } | null>(null)
 
-  const toWorld = useCallback((clientX: number, clientY: number): Point => {
-    const rect = containerRef.current!.getBoundingClientRect()
+  const toWorld = useCallback((clientX: number, clientY: number, rect = containerRef.current!.getBoundingClientRect()): Point => {
     const originX = rect.left + (rect.width - project.width * zoom) / 2 + pan.x
     const originY = rect.top + (rect.height - project.height * zoom) / 2 + pan.y
     return { x: (clientX - originX) / zoom, y: (clientY - originY) / zoom }
@@ -224,11 +224,31 @@ export function Stage({ compact = false }: { compact?: boolean } = {}) {
     points: smoothPoints(points, settings.smoothing), closed: false,
   })
 
+  const clearLiveStroke = useCallback(() => {
+    const overlay = overlayRef.current
+    if (!overlay) return
+    const ctx = overlay.getContext('2d')
+    if (!ctx) return
+    ctx.setTransform(1, 0, 0, 1, 0, 0)
+    ctx.clearRect(0, 0, overlay.width, overlay.height)
+  }, [])
+
+  const paintLiveStroke = (shape: Shape) => {
+    const overlay = overlayRef.current
+    if (!overlay) return
+    const ctx = overlay.getContext('2d')
+    if (!ctx) return
+    ctx.setTransform(1, 0, 0, 1, 0, 0)
+    ctx.clearRect(0, 0, overlay.width, overlay.height)
+    ctx.setTransform(zoom, 0, 0, zoom, 0, 0)
+    drawShape(ctx, shape)
+  }
+
   const flushPathDraft = () => {
     pathDraftFrameRef.current = null
     const pending = pendingPathDraftRef.current
     if (!pending) return
-    setDraft(makeStrokeShape(pending.points, pending.id))
+    paintLiveStroke(makeStrokeShape(pending.points, pending.id))
   }
 
   useEffect(() => () => {
@@ -238,10 +258,20 @@ export function Stage({ compact = false }: { compact?: boolean } = {}) {
   const render = useCallback(() => {
     const canvas = canvasRef.current
     if (!canvas) return
-    canvas.width = Math.max(1, Math.round(project.width * zoom))
-    canvas.height = Math.max(1, Math.round(project.height * zoom))
+    const width = Math.max(1, Math.round(project.width * zoom))
+    const height = Math.max(1, Math.round(project.height * zoom))
+    if (canvas.width !== width) canvas.width = width
+    if (canvas.height !== height) canvas.height = height
     canvas.style.width = `${project.width * zoom}px`
     canvas.style.height = `${project.height * zoom}px`
+    const overlay = overlayRef.current
+    if (overlay) {
+      if (overlay.width !== width) overlay.width = width
+      if (overlay.height !== height) overlay.height = height
+      overlay.style.width = canvas.style.width
+      overlay.style.height = canvas.style.height
+    }
+    clearLiveStroke()
     const ctx = canvas.getContext('2d')!
     ctx.setTransform(zoom, 0, 0, zoom, 0, 0)
     ctx.fillStyle = project.backgroundColor
@@ -354,7 +384,7 @@ export function Stage({ compact = false }: { compact?: boolean } = {}) {
     if (selected && tool === 'subselection' && selected.points?.length) {
       drawGuide(selected.points, '#1473e6', false)
     }
-  }, [project, zoom, currentFrame, state.showGrid, state.onionSkin, state.onionRange, state.onionOpacity, state.showBones, draft, draftBone, selection, penPoints, lassoPoints, motionPathDraft, tool, snapJoint])
+  }, [project, zoom, currentFrame, state.showGrid, state.onionSkin, state.onionRange, state.onionOpacity, state.showBones, draft, draftBone, selection, penPoints, lassoPoints, motionPathDraft, tool, snapJoint, clearLiveStroke])
 
   useEffect(() => { render() }, [render])
 
@@ -829,13 +859,12 @@ export function Stage({ compact = false }: { compact?: boolean } = {}) {
       dragRef.current = { kind: 'erase', points }
       eraseAt(p)
     } else if (drag.kind === 'path') {
-      let next = drag
+      const rect = containerRef.current?.getBoundingClientRect()
+      if (!rect) return
       for (const sample of pointerSamples(e)) {
-        const raw = toWorld(sample.x, sample.y)
-        next = addStabilizedSample(next, raw, settings.smoothing, settings.brushSize, zoom)
+        addStabilizedSample(drag, toWorld(sample.x, sample.y, rect), settings.smoothing, settings.brushSize, zoom)
       }
-      dragRef.current = next
-      pendingPathDraftRef.current = { id: next.id, points: next.points }
+      pendingPathDraftRef.current = { id: drag.id, points: drag.points }
       if (pathDraftFrameRef.current === null) pathDraftFrameRef.current = requestAnimationFrame(flushPathDraft)
     } else if (drag.kind === 'draw') {
       let dx = p.x - drag.start.x
@@ -868,11 +897,13 @@ export function Stage({ compact = false }: { compact?: boolean } = {}) {
       }
     }
     if (drag.kind === 'path' && e) {
-      for (const sample of pointerSamples(e)) {
-        const raw = toWorld(sample.x, sample.y)
-        drag = addStabilizedSample(drag, raw, settings.smoothing, settings.brushSize, zoom)
+      const rect = containerRef.current?.getBoundingClientRect()
+      if (rect) {
+        for (const sample of pointerSamples(e)) {
+          addStabilizedSample(drag, toWorld(sample.x, sample.y, rect), settings.smoothing, settings.brushSize, zoom)
+        }
       }
-      drag = settleStroke(drag, settings.smoothing, settings.brushSize, zoom)
+      settleStroke(drag, settings.smoothing, settings.brushSize, zoom)
     }
     if (pathDraftFrameRef.current !== null) cancelAnimationFrame(pathDraftFrameRef.current)
     pathDraftFrameRef.current = null
@@ -915,6 +946,7 @@ export function Stage({ compact = false }: { compact?: boolean } = {}) {
     }
     if (drag.kind === 'point' || drag.kind === 'boneRotate' || drag.kind === 'boneTranslate') dispatch({ type: 'END_TRANSFORM' })
     if (drag.kind === 'move' || drag.kind === 'resize') dispatch({ type: 'END_TRANSFORM' })
+    clearLiveStroke()
     setDraft(null)
   }
 
@@ -960,6 +992,7 @@ export function Stage({ compact = false }: { compact?: boolean } = {}) {
             onDoubleClick={onDoubleClick}
             onContextMenu={(e) => e.preventDefault()}
           />
+          <canvas ref={overlayRef} className="stroke-overlay" aria-hidden="true" />
           <div className="stage-shadow" />
         </div>
       </div>

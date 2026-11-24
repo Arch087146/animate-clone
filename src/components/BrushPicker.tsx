@@ -13,7 +13,7 @@ export interface BrushPickerPosition {
 }
 
 function shortName(brush: BrushPreset) {
-  return brush.name.replace(/^Krita CC0 · /, '')
+  return brush.name.replace(/^Krita CC0 · /, '').replace(/^CC0 /, '')
 }
 
 function BrushTile({
@@ -97,7 +97,8 @@ export function BrushPicker({
   }, [category, query])
 
   const stats = useMemo(() => ({
-    presets: BRUSHES.length,
+    krita: BRUSHES.filter((brush) => brush.family === 'Krita CC0').length,
+    gimp: BRUSHES.filter((brush) => brush.family === 'CC0').length,
     tips: new Set(BRUSHES.map((brush) => brush.params.stampImage).filter(Boolean)).size,
   }), [])
 
@@ -176,7 +177,7 @@ export function BrushPicker({
               <span>{activeBrush.description}</span>
             </div>
             <span className="brush-picker-stats">
-              {stats.presets} Krita presets · {stats.tips} real tips
+              {stats.krita} Krita presets · {stats.gimp} GIMP tips · {stats.tips} unique masks
             </span>
           </div>
         </div>

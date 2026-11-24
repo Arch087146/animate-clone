@@ -33,7 +33,7 @@ npm run dist         # rebuild and repackage into release/
 
 ### Drawing & tools
 - 20 tools: selection, subselection, lasso, pen, text, line, rectangle/oval, primitives, poly-star, pencil, brush, eraser, ink bottle, paint bucket, eyedropper, hand, zoom and **bone**
-- **37 CC0 brush presets** imported from David Revoy’s Krita 2025-01 bundle, with 22 real grayscale tip images. Krita-style picker with categories, search and live previews plus adjustable size, opacity, flow, spacing, scatter and smoothing. Attribution is in `NOTICE.md`.
+- **181 CC0 brush presets** — 37 Krita painting presets plus 144 GIMP tip brushes — with 166 unique grayscale tip masks. Krita-style picker with categories, search and live previews plus adjustable size, opacity, flow, spacing, scatter and smoothing. Exact repeats are deduplicated; attribution is in `NOTICE.md`.
 - Contextual tool options bar with full per-tool settings
 - Font family, size, bold/italic controls for text
 - Real eraser dragging, pen paths, lasso selection, eyedropper color picking

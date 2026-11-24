@@ -1,7 +1,8 @@
 import type { Point } from './types'
+import { CC0_BRUSHES } from './cc0Brushes.generated'
 import { KRITA_BRUSHES } from './kritaBrushes.generated'
 
-export type BrushFamily = 'Krita CC0'
+export type BrushFamily = 'Krita CC0' | 'CC0'
 
 export const BRUSH_CATEGORIES = [
   'Pencils & Lineart',
@@ -10,6 +11,7 @@ export const BRUSH_CATEGORIES = [
   'Textured Brushes',
   'Water',
   'Textures & Effects',
+  'CC0 Tips',
 ] as const
 
 export type DabTexture = 'smooth' | 'paper' | 'canvas' | 'grit' | 'rough' | 'fibrous' | 'crackle'
@@ -65,7 +67,7 @@ export interface BrushParams {
   stamp?: DabStamp
   /** Alternate between two hues for multicolour / dual-tip brushes. */
   multicolor?: boolean
-  /** Bundled CC0 Krita tip image used as a stamp. */
+  /** Bundled CC0 tip image used as a stamp. */
   stampImage?: string
   /** Render as a clean vector pen stroke instead of textured dabs. */
   cleanStroke?: CleanStroke
@@ -175,10 +177,27 @@ function shiftHue(hex: string, degrees: number): string {
   return `rgb(${Math.round((rr + m) * 255)},${Math.round((gg + m) * 255)},${Math.round((bb + m) * 255)})`
 }
 
-export const BRUSHES: BrushPreset[] = KRITA_BRUSHES
+function brushSignature(brush: BrushPreset): string {
+  const params = Object.fromEntries(
+    Object.keys(brush.params)
+      .sort()
+      .map((key) => [key, brush.params[key as keyof BrushParams]]),
+  )
+  return JSON.stringify(params)
+}
+
+const seenBrushSignatures = new Set<string>()
+
+/** Krita presets come first; exact repeats from either source are dropped. */
+export const BRUSHES: BrushPreset[] = [...KRITA_BRUSHES, ...CC0_BRUSHES].filter((brush) => {
+  const signature = brushSignature(brush)
+  if (seenBrushSignatures.has(signature)) return false
+  seenBrushSignatures.add(signature)
+  return true
+})
 
 export function brushCategory(brush: BrushPreset): string {
-  return brush.category ?? 'Other'
+  return brush.category ?? (brush.family === 'CC0' ? 'CC0 Tips' : 'Other')
 }
 
 const BRUSH_MAP = new Map(BRUSHES.map((brush) => [brush.id, brush]))
@@ -191,34 +210,41 @@ export function getBrush(id: string): BrushPreset {
  * Stroke rendering                                                    *
  * ------------------------------------------------------------------ */
 
-function strokeLength(points: Point[]): number {
-  let length = 0
-  for (let i = 1; i < points.length; i++) length += Math.hypot(points[i].x - points[i - 1].x, points[i].y - points[i - 1].y)
-  return length
+function cumulativeLengths(points: Point[]): Float64Array {
+  const lengths = new Float64Array(points.length)
+  for (let i = 1; i < points.length; i++) {
+    lengths[i] = lengths[i - 1] + Math.hypot(points[i].x - points[i - 1].x, points[i].y - points[i - 1].y)
+  }
+  return lengths
 }
 
 function pointAt(
   points: Point[],
+  lengths: Float64Array,
   speeds: number[],
   maxSpeed: number,
   distance: number,
 ): { point: Point; angle: number; speed: number } {
-  let remaining = distance
-  for (let i = 1; i < points.length; i++) {
-    const a = points[i - 1]
-    const b = points[i]
-    const segment = Math.hypot(b.x - a.x, b.y - a.y)
-    if (remaining <= segment || i === points.length - 1) {
-      const t = segment === 0 ? 0 : Math.max(0, Math.min(1, remaining / segment))
-      return {
-        point: { x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t },
-        angle: Math.atan2(b.y - a.y, b.x - a.x),
-        speed: maxSpeed > 0 ? lerp(speeds[i - 1] ?? 0, speeds[i] ?? 0, t) / maxSpeed : 0,
-      }
-    }
-    remaining -= segment
+  if (points.length < 2) {
+    return { point: points[0] ?? { x: 0, y: 0 }, angle: 0, speed: 0 }
   }
-  return { point: points[points.length - 1] ?? { x: 0, y: 0 }, angle: 0, speed: 0 }
+  let lo = 1
+  let hi = points.length - 1
+  while (lo < hi) {
+    const mid = (lo + hi) >> 1
+    if (lengths[mid] < distance) lo = mid + 1
+    else hi = mid
+  }
+  const i = lo
+  const a = points[i - 1]
+  const b = points[i]
+  const segment = lengths[i] - lengths[i - 1]
+  const t = segment === 0 ? 0 : Math.max(0, Math.min(1, (distance - lengths[i - 1]) / segment))
+  return {
+    point: { x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t },
+    angle: Math.atan2(b.y - a.y, b.x - a.x),
+    speed: maxSpeed > 0 ? lerp(speeds[i - 1] ?? 0, speeds[i] ?? 0, t) / maxSpeed : 0,
+  }
 }
 
 function irregularPath(ctx: CanvasRenderingContext2D, rx: number, ry: number, amount: number, phase: number, rand: () => number) {
@@ -745,7 +771,8 @@ export function renderBrushStroke(
   const spacingScale = Math.max(0.2, options.spacingScale ?? 1)
   const scatterScale = options.scatterScale ?? 1
   const step = Math.max(0.7, size * p.spacing * spacingScale)
-  const total = strokeLength(points)
+  const lengths = cumulativeLengths(points)
+  const total = lengths[points.length - 1] ?? 0
   const dabCount = Math.min(1800, Math.max(1, Math.ceil(total / step) + 1))
   const rand = mulberry32(hashSeed(options.seed ?? 'stroke') ^ 0x9e3779b9)
   const texture = p.texture ?? 'smooth'
@@ -798,7 +825,7 @@ export function renderBrushStroke(
 
   for (let i = 0; i < dabCount; i++) {
     const t = dabCount === 1 ? 0 : i / (dabCount - 1)
-    const { point, angle, speed } = pointAt(points, speeds, maxSpeed, Math.min(total, t * total))
+    const { point, angle, speed } = pointAt(points, lengths, speeds, maxSpeed, Math.min(total, t * total))
     const edge = Math.min(t, 1 - t) * 2
     let pressure = 1 - p.taper * (1 - Math.pow(Math.max(0, edge), 0.45))
     pressure *= 1 - (p.velocitySize ?? 0) * speed * 0.82
