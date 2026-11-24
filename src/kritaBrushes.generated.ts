@@ -36,6 +36,7 @@ export const KRITA_BRUSHES: BrushPreset[] = [
     id: 'krita_cc0_b5_thin_basic_details_1',
     name: "Krita CC0 · b5) Thin Basic Details",
     family: 'Krita CC0',
+    category: "Pencils & Lineart",
     description: 'CC0 Krita preset from David Revoy’s 2025-01 brush bundle.',
     params: {
       size: 11.5,
@@ -64,6 +65,7 @@ export const KRITA_BRUSHES: BrushPreset[] = [
     id: 'krita_cc0_c1_pencil_h_sketch_2',
     name: "Krita CC0 · c1) Pencil H Sketch",
     family: 'Krita CC0',
+    category: "Pencils & Lineart",
     description: 'CC0 Krita preset from David Revoy’s 2025-01 brush bundle.',
     params: {
       size: 8,
@@ -92,6 +94,7 @@ export const KRITA_BRUSHES: BrushPreset[] = [
     id: 'krita_cc0_c2_mechanical_pencil_detail_3',
     name: "Krita CC0 · c2) Mechanical Pencil Detail",
     family: 'Krita CC0',
+    category: "Pencils & Lineart",
     description: 'CC0 Krita preset from David Revoy’s 2025-01 brush bundle.',
     params: {
       size: 8,
@@ -121,6 +124,7 @@ export const KRITA_BRUSHES: BrushPreset[] = [
     id: 'krita_cc0_c2_pencil_2b_4',
     name: "Krita CC0 · c2) Pencil 2B",
     family: 'Krita CC0',
+    category: "Pencils & Lineart",
     description: 'CC0 Krita preset from David Revoy’s 2025-01 brush bundle.',
     params: {
       size: 12,
@@ -149,6 +153,7 @@ export const KRITA_BRUSHES: BrushPreset[] = [
     id: 'krita_cc0_c3_thin_brush_textured_5',
     name: "Krita CC0 · c3) Thin Brush Textured",
     family: 'Krita CC0',
+    category: "Pencils & Lineart",
     description: 'CC0 Krita preset from David Revoy’s 2025-01 brush bundle.',
     params: {
       size: 11,
@@ -177,6 +182,7 @@ export const KRITA_BRUSHES: BrushPreset[] = [
     id: 'krita_cc0_c4_bristles_lineart_6',
     name: "Krita CC0 · c4) Bristles Lineart",
     family: 'Krita CC0',
+    category: "Pencils & Lineart",
     description: 'CC0 Krita preset from David Revoy’s 2025-01 brush bundle.',
     params: {
       size: 6,
@@ -206,6 +212,7 @@ export const KRITA_BRUSHES: BrushPreset[] = [
     id: 'krita_cc0_c4_thin_brush_regular_7',
     name: "Krita CC0 · c4) Thin Brush Regular",
     family: 'Krita CC0',
+    category: "Pencils & Lineart",
     description: 'CC0 Krita preset from David Revoy’s 2025-01 brush bundle.',
     params: {
       size: 24,
@@ -235,6 +242,7 @@ export const KRITA_BRUSHES: BrushPreset[] = [
     id: 'krita_cc0_c5_thin_brush_hard_edge_textured_8',
     name: "Krita CC0 · c5) Thin Brush Hard Edge Textured",
     family: 'Krita CC0',
+    category: "Pencils & Lineart",
     description: 'CC0 Krita preset from David Revoy’s 2025-01 brush bundle.',
     params: {
       size: 35,
@@ -264,6 +272,7 @@ export const KRITA_BRUSHES: BrushPreset[] = [
     id: 'krita_cc0_c6_thin_brush_pointy_9',
     name: "Krita CC0 · c6) Thin Brush Pointy",
     family: 'Krita CC0',
+    category: "Pencils & Lineart",
     description: 'CC0 Krita preset from David Revoy’s 2025-01 brush bundle.',
     params: {
       size: 20,
@@ -293,6 +302,7 @@ export const KRITA_BRUSHES: BrushPreset[] = [
     id: 'krita_cc0_d_block_brush_glazing_10',
     name: "Krita CC0 · d) Block Brush Glazing",
     family: 'Krita CC0',
+    category: "Brushes & Glazing",
     description: 'CC0 Krita preset from David Revoy’s 2025-01 brush bundle.',
     params: {
       size: 40,
@@ -322,6 +332,7 @@ export const KRITA_BRUSHES: BrushPreset[] = [
     id: 'krita_cc0_d_bristle_flat_glazing_11',
     name: "Krita CC0 · d) Bristle Flat Glazing",
     family: 'Krita CC0',
+    category: "Brushes & Glazing",
     description: 'CC0 Krita preset from David Revoy’s 2025-01 brush bundle.',
     params: {
       size: 32,
@@ -351,6 +362,7 @@ export const KRITA_BRUSHES: BrushPreset[] = [
     id: 'krita_cc0_d_glazing_round_12',
     name: "Krita CC0 · d) Glazing Round",
     family: 'Krita CC0',
+    category: "Brushes & Glazing",
     description: 'CC0 Krita preset from David Revoy’s 2025-01 brush bundle.',
     params: {
       size: 48,
@@ -380,6 +392,7 @@ export const KRITA_BRUSHES: BrushPreset[] = [
     id: 'krita_cc0_d_glazing_textured_13',
     name: "Krita CC0 · d) Glazing Textured",
     family: 'Krita CC0',
+    category: "Brushes & Glazing",
     description: 'CC0 Krita preset from David Revoy’s 2025-01 brush bundle.',
     params: {
       size: 60,
@@ -409,6 +422,7 @@ export const KRITA_BRUSHES: BrushPreset[] = [
     id: 'krita_cc0_f_bristle_thick_textured_14',
     name: "Krita CC0 · f) Bristle Thick Textured",
     family: 'Krita CC0',
+    category: "Textured Brushes",
     description: 'CC0 Krita preset from David Revoy’s 2025-01 brush bundle.',
     params: {
       size: 84,
@@ -438,6 +452,7 @@ export const KRITA_BRUSHES: BrushPreset[] = [
     id: 'krita_cc0_f_bristle_tilt_modeling_15',
     name: "Krita CC0 · f) Bristle Tilt Modeling",
     family: 'Krita CC0',
+    category: "Textured Brushes",
     description: 'CC0 Krita preset from David Revoy’s 2025-01 brush bundle.',
     params: {
       size: 55,
@@ -467,6 +482,7 @@ export const KRITA_BRUSHES: BrushPreset[] = [
     id: 'krita_cc0_f_bristles_filler_16',
     name: "Krita CC0 · f) Bristles Filler",
     family: 'Krita CC0',
+    category: "Textured Brushes",
     description: 'CC0 Krita preset from David Revoy’s 2025-01 brush bundle.',
     params: {
       size: 35,
@@ -496,6 +512,7 @@ export const KRITA_BRUSHES: BrushPreset[] = [
     id: 'krita_cc0_g_water_edges_17',
     name: "Krita CC0 · g) Water Edges",
     family: 'Krita CC0',
+    category: "Water",
     description: 'CC0 Krita preset from David Revoy’s 2025-01 brush bundle.',
     params: {
       size: 62,
@@ -525,6 +542,7 @@ export const KRITA_BRUSHES: BrushPreset[] = [
     id: 'krita_cc0_b1_airbrush_18',
     name: "Krita CC0 · b1) Airbrush",
     family: 'Krita CC0',
+    category: "Essentials",
     description: 'CC0 Krita preset from David Revoy’s 2025-01 brush bundle.',
     params: {
       size: 96,
@@ -553,6 +571,7 @@ export const KRITA_BRUSHES: BrushPreset[] = [
     id: 'krita_cc0_b2_basic_size_fill_area_19',
     name: "Krita CC0 · b2) Basic Size Fill Area",
     family: 'Krita CC0',
+    category: "Essentials",
     description: 'CC0 Krita preset from David Revoy’s 2025-01 brush bundle.',
     params: {
       size: 32,
@@ -581,6 +600,7 @@ export const KRITA_BRUSHES: BrushPreset[] = [
     id: 'krita_cc0_b3_basic_oval_brush_20',
     name: "Krita CC0 · b3) Basic Oval Brush",
     family: 'Krita CC0',
+    category: "Essentials",
     description: 'CC0 Krita preset from David Revoy’s 2025-01 brush bundle.',
     params: {
       size: 40,
@@ -609,6 +629,7 @@ export const KRITA_BRUSHES: BrushPreset[] = [
     id: 'krita_cc0_b4_basic_size_pressure_21',
     name: "Krita CC0 · b4) Basic Size Pressure",
     family: 'Krita CC0',
+    category: "Essentials",
     description: 'CC0 Krita preset from David Revoy’s 2025-01 brush bundle.',
     params: {
       size: 20,
@@ -637,6 +658,7 @@ export const KRITA_BRUSHES: BrushPreset[] = [
     id: 'krita_cc0_f_thick_dry_canvas_22',
     name: "Krita CC0 · f) Thick Dry Canvas",
     family: 'Krita CC0',
+    category: "Textured Brushes",
     description: 'CC0 Krita preset from David Revoy’s 2025-01 brush bundle.',
     params: {
       size: 96,
@@ -666,6 +688,7 @@ export const KRITA_BRUSHES: BrushPreset[] = [
     id: 'krita_cc0_y_squiggles_23',
     name: "Krita CC0 · y) Squiggles",
     family: 'Krita CC0',
+    category: "Textures & Effects",
     description: 'CC0 Krita preset from David Revoy’s 2025-01 brush bundle.',
     params: {
       size: 96,
@@ -695,6 +718,7 @@ export const KRITA_BRUSHES: BrushPreset[] = [
     id: 'krita_cc0_d_charcoal_rock_soft_24',
     name: "Krita CC0 · d) Charcoal Rock Soft",
     family: 'Krita CC0',
+    category: "Brushes & Glazing",
     description: 'CC0 Krita preset from David Revoy’s 2025-01 brush bundle.',
     params: {
       size: 30,
@@ -724,6 +748,7 @@ export const KRITA_BRUSHES: BrushPreset[] = [
     id: 'krita_cc0_d_shape_blocker_textured_25',
     name: "Krita CC0 · d) Shape Blocker Textured",
     family: 'Krita CC0',
+    category: "Brushes & Glazing",
     description: 'CC0 Krita preset from David Revoy’s 2025-01 brush bundle.',
     params: {
       size: 96,
@@ -753,6 +778,7 @@ export const KRITA_BRUSHES: BrushPreset[] = [
     id: 'krita_cc0_f_hard_edge_textured_block_26',
     name: "Krita CC0 · f) Hard Edge Textured Block",
     family: 'Krita CC0',
+    category: "Textured Brushes",
     description: 'CC0 Krita preset from David Revoy’s 2025-01 brush bundle.',
     params: {
       size: 86,
@@ -782,6 +808,7 @@ export const KRITA_BRUSHES: BrushPreset[] = [
     id: 'krita_cc0_f_rough_rake_textured_27',
     name: "Krita CC0 · f) Rough Rake Textured",
     family: 'Krita CC0',
+    category: "Textured Brushes",
     description: 'CC0 Krita preset from David Revoy’s 2025-01 brush bundle.',
     params: {
       size: 50,
@@ -811,6 +838,7 @@ export const KRITA_BRUSHES: BrushPreset[] = [
     id: 'krita_cc0_f_textured_crease_update_28',
     name: "Krita CC0 · f) Textured Crease Update",
     family: 'Krita CC0',
+    category: "Textured Brushes",
     description: 'CC0 Krita preset from David Revoy’s 2025-01 brush bundle.',
     params: {
       size: 96,
@@ -840,6 +868,7 @@ export const KRITA_BRUSHES: BrushPreset[] = [
     id: 'krita_cc0_x_textured_chaotic_irregular_29',
     name: "Krita CC0 · x) Textured Chaotic Irregular",
     family: 'Krita CC0',
+    category: "Textures & Effects",
     description: 'CC0 Krita preset from David Revoy’s 2025-01 brush bundle.',
     params: {
       size: 96,
@@ -869,6 +898,7 @@ export const KRITA_BRUSHES: BrushPreset[] = [
     id: 'krita_cc0_y_canvas_rub_texture_30',
     name: "Krita CC0 · y) Canvas Rub Texture",
     family: 'Krita CC0',
+    category: "Textures & Effects",
     description: 'CC0 Krita preset from David Revoy’s 2025-01 brush bundle.',
     params: {
       size: 96,
@@ -898,6 +928,7 @@ export const KRITA_BRUSHES: BrushPreset[] = [
     id: 'krita_cc0_y_dry_scratch_texture_31',
     name: "Krita CC0 · y) Dry Scratch Texture",
     family: 'Krita CC0',
+    category: "Textures & Effects",
     description: 'CC0 Krita preset from David Revoy’s 2025-01 brush bundle.',
     params: {
       size: 90,
@@ -927,6 +958,7 @@ export const KRITA_BRUSHES: BrushPreset[] = [
     id: 'krita_cc0_y_foliage_32',
     name: "Krita CC0 · y) foliage",
     family: 'Krita CC0',
+    category: "Textures & Effects",
     description: 'CC0 Krita preset from David Revoy’s 2025-01 brush bundle.',
     params: {
       size: 96,
@@ -956,6 +988,7 @@ export const KRITA_BRUSHES: BrushPreset[] = [
     id: 'krita_cc0_y_splatters_large_33',
     name: "Krita CC0 · y) Splatters Large",
     family: 'Krita CC0',
+    category: "Textures & Effects",
     description: 'CC0 Krita preset from David Revoy’s 2025-01 brush bundle.',
     params: {
       size: 96,
@@ -985,6 +1018,7 @@ export const KRITA_BRUSHES: BrushPreset[] = [
     id: 'krita_cc0_y_splatters_light_34',
     name: "Krita CC0 · y) Splatters Light",
     family: 'Krita CC0',
+    category: "Textures & Effects",
     description: 'CC0 Krita preset from David Revoy’s 2025-01 brush bundle.',
     params: {
       size: 96,
@@ -1014,6 +1048,7 @@ export const KRITA_BRUSHES: BrushPreset[] = [
     id: 'krita_cc0_y_texture_feeding_canvas_35',
     name: "Krita CC0 · y) Texture Feeding Canvas",
     family: 'Krita CC0',
+    category: "Textures & Effects",
     description: 'CC0 Krita preset from David Revoy’s 2025-01 brush bundle.',
     params: {
       size: 95,
@@ -1043,6 +1078,7 @@ export const KRITA_BRUSHES: BrushPreset[] = [
     id: 'krita_cc0_y_textured_big_sponge_36',
     name: "Krita CC0 · y) Textured Big Sponge",
     family: 'Krita CC0',
+    category: "Textures & Effects",
     description: 'CC0 Krita preset from David Revoy’s 2025-01 brush bundle.',
     params: {
       size: 96,
@@ -1072,6 +1108,7 @@ export const KRITA_BRUSHES: BrushPreset[] = [
     id: 'krita_cc0_y_textured_random_noise_37',
     name: "Krita CC0 · y) Textured Random Noise",
     family: 'Krita CC0',
+    category: "Textures & Effects",
     description: 'CC0 Krita preset from David Revoy’s 2025-01 brush bundle.',
     params: {
       size: 96,

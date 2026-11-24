@@ -8,6 +8,17 @@ export type BrushFamily =
   | 'Pastel' | 'Fan' | 'Dry Brush' | 'Splatter' | 'Smudge' | 'Sumi' | 'Technical' | 'Fiber'
   | 'Gel' | 'Knife' | 'Sponge' | 'Stencil' | 'Bamboo' | 'Metallic' | 'Cloud' | 'Fur' | 'CC0' | 'Krita CC0'
 
+export const BRUSH_CATEGORIES = [
+  'Pencils & Lineart',
+  'Essentials',
+  'Brushes & Glazing',
+  'Textured Brushes',
+  'Water',
+  'Textures & Effects',
+  'CC0 Tips',
+  'Other',
+] as const
+
 export type DabTexture = 'smooth' | 'paper' | 'canvas' | 'grit' | 'rough' | 'fibrous' | 'crackle'
 export type DabStamp = 'none' | 'dot' | 'square' | 'leaf' | 'grass' | 'star' | 'brick' | 'splat' | 'cloud' | 'ring' | 'scale' | 'scribble'
 export type CleanStroke =
@@ -71,6 +82,7 @@ export interface BrushPreset {
   id: string
   name: string
   family: BrushFamily
+  category?: string
   description: string
   params: BrushParams
 }
@@ -178,6 +190,10 @@ export const BRUSHES: BrushPreset[] = [
 export const BRUSH_FAMILIES: BrushFamily[] = Array.from(
   new Set(BRUSHES.map((brush) => brush.family)),
 )
+
+export function brushCategory(brush: BrushPreset): string {
+  return brush.category ?? (brush.family === 'CC0' ? 'CC0 Tips' : brush.family)
+}
 
 const BRUSH_MAP = new Map(BRUSHES.map((brush) => [brush.id, brush]))
 

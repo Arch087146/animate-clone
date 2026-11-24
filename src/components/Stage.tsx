@@ -9,7 +9,7 @@ import { ToolOptions } from './ToolOptions'
 type DragMode =
   | { kind: 'none' }
   | { kind: 'draw'; start: Point; shape: Shape }
-  | { kind: 'path'; points: Point[] }
+  | { kind: 'path'; id: string; points: Point[]; raw: Point; anchor: Point }
   | { kind: 'lasso'; points: Point[] }
   | { kind: 'erase'; points: Point[] }
   | { kind: 'boneDraw'; start: Point; parentId: string | null }
@@ -23,6 +23,80 @@ type DragMode =
   | { kind: 'pan'; start: Point; pan: Point }
 
 const HANDLES = ['nw', 'n', 'ne', 'e', 'se', 's', 'sw', 'w']
+
+type PathDragMode = Extract<DragMode, { kind: 'path' }>
+type ClientPoint = { x: number; y: number }
+
+function pointerSamples(e: React.PointerEvent<HTMLCanvasElement>): ClientPoint[] {
+  const native = e.nativeEvent
+  const getCoalesced = (native as PointerEvent & { getCoalescedEvents?: () => PointerEvent[] }).getCoalescedEvents
+  const coalesced = typeof getCoalesced === 'function' ? getCoalesced.call(native) : []
+  const events = coalesced.length ? coalesced : []
+  const last = events[events.length - 1]
+  if (!last || last.clientX !== native.clientX || last.clientY !== native.clientY) events.push(native)
+  return events.map((sample) => ({ x: sample.clientX, y: sample.clientY }))
+}
+
+function lerpPoint(a: Point, b: Point, t: number): Point {
+  return { x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t }
+}
+
+function minStrokeStep(brushSize: number, zoom: number): number {
+  return Math.max(0.25, Math.min(1.5, brushSize / (zoom * 6)))
+}
+
+function stabilizerRadius(smoothing: number, brushSize: number, zoom: number): number {
+  const amount = clamp(smoothing, 0, 1)
+  return (2 + brushSize * 0.7 + amount * 18) / Math.max(0.25, zoom)
+}
+
+function appendStrokePoint(points: Point[], point: Point, minStep: number): Point[] {
+  const last = points[points.length - 1]
+  if (last && Math.hypot(point.x - last.x, point.y - last.y) < minStep) return points
+  return [...points, point]
+}
+
+/** Krita-style stabilizer: the stroke follows the cursor once it leaves a small radius. */
+function addStabilizedSample(
+  drag: PathDragMode,
+  raw: Point,
+  smoothing: number,
+  brushSize: number,
+  zoom: number,
+): PathDragMode {
+  const radius = stabilizerRadius(smoothing, brushSize, zoom)
+  const minStep = minStrokeStep(brushSize, zoom)
+  const dx = raw.x - drag.anchor.x
+  const dy = raw.y - drag.anchor.y
+  const distance = Math.hypot(dx, dy)
+  if (distance < minStep) return { ...drag, raw }
+  const travel = Math.max(0, distance - radius)
+  if (travel === 0) return { ...drag, raw }
+  const follow = 0.72 - clamp(smoothing, 0, 1) * 0.5
+  const pull = Math.min(1, follow + travel / (radius * 3.5))
+  const move = travel * pull
+  const anchor = {
+    x: drag.anchor.x + (dx / distance) * move,
+    y: drag.anchor.y + (dy / distance) * move,
+  }
+  return { ...drag, raw, anchor, points: appendStrokePoint(drag.points, anchor, minStep) }
+}
+
+/** Bring the stabilized tail to the release point so the stroke ends under the cursor. */
+function settleStroke(
+  drag: PathDragMode,
+  smoothing: number,
+  brushSize: number,
+  zoom: number,
+): PathDragMode {
+  const distance = Math.hypot(drag.raw.x - drag.anchor.x, drag.raw.y - drag.anchor.y)
+  if (distance < minStrokeStep(brushSize, zoom)) return drag
+  const radius = Math.max(1, stabilizerRadius(smoothing, brushSize, zoom))
+  const steps = Math.min(12, Math.max(1, Math.ceil(distance / (radius * 0.6))))
+  const points = [...drag.points]
+  for (let i = 1; i <= steps; i++) points.push(lerpPoint(drag.anchor, drag.raw, i / steps))
+  return { ...drag, anchor: drag.raw, points }
+}
 
 function rotatePoint(p: Point, origin: Point, angle: number): Point {
   const cos = Math.cos(angle)
@@ -126,6 +200,8 @@ export function Stage({ compact = false }: { compact?: boolean } = {}) {
   const [lassoPoints, setLassoPoints] = useState<Point[]>([])
   const [motionPathDraft, setMotionPathDraft] = useState<Point[] | null>(null)
   const [snapJoint, setSnapJoint] = useState<Point | null>(null)
+  const pathDraftFrameRef = useRef<number | null>(null)
+  const pendingPathDraftRef = useRef<{ id: string; points: Point[] } | null>(null)
 
   const toWorld = useCallback((clientX: number, clientY: number): Point => {
     const rect = containerRef.current!.getBoundingClientRect()
@@ -133,6 +209,31 @@ export function Stage({ compact = false }: { compact?: boolean } = {}) {
     const originY = rect.top + (rect.height - project.height * zoom) / 2 + pan.y
     return { x: (clientX - originX) / zoom, y: (clientY - originY) / zoom }
   }, [project.width, project.height, zoom, pan])
+
+  const makeStrokeShape = (points: Point[], id: string): Shape => createShape({
+    id,
+    name: `${tool === 'brush' ? 'Brush' : 'Pencil'} · ${getBrushName(settings.brushId)}`,
+    type: 'path',
+    x: 0, y: 0, width: project.width, height: project.height,
+    fill: 'none', stroke: state.strokeColor, strokeWidth: settings.brushSize,
+    opacity: settings.brushOpacity,
+    brush: {
+      id: settings.brushId, size: settings.brushSize, opacity: settings.brushOpacity,
+      flowScale: settings.flowScale, spacingScale: settings.spacingScale, scatterScale: settings.scatterScale,
+    },
+    points: smoothPoints(points, settings.smoothing), closed: false,
+  })
+
+  const flushPathDraft = () => {
+    pathDraftFrameRef.current = null
+    const pending = pendingPathDraftRef.current
+    if (!pending) return
+    setDraft(makeStrokeShape(pending.points, pending.id))
+  }
+
+  useEffect(() => () => {
+    if (pathDraftFrameRef.current !== null) cancelAnimationFrame(pathDraftFrameRef.current)
+  }, [])
 
   const render = useCallback(() => {
     const canvas = canvasRef.current
@@ -606,7 +707,8 @@ export function Stage({ compact = false }: { compact?: boolean } = {}) {
     }
 
     if (tool === 'pencil' || tool === 'brush') {
-      dragRef.current = { kind: 'path', points: [p] }
+      const strokeId = uid('shape')
+      dragRef.current = { kind: 'path', id: strokeId, points: [p], raw: p, anchor: p }
       return
     }
 
@@ -727,20 +829,14 @@ export function Stage({ compact = false }: { compact?: boolean } = {}) {
       dragRef.current = { kind: 'erase', points }
       eraseAt(p)
     } else if (drag.kind === 'path') {
-      const points = [...drag.points, p]
-      dragRef.current = { kind: 'path', points }
-      const brushId = settings.brushId
-      setDraft(createShape({
-        name: `${tool === 'brush' ? 'Brush' : 'Pencil'} · ${getBrushName(brushId)}`, type: 'path',
-        x: 0, y: 0, width: project.width, height: project.height,
-        fill: 'none', stroke: state.strokeColor, strokeWidth: settings.brushSize,
-        opacity: settings.brushOpacity,
-        brush: {
-          id: brushId, size: settings.brushSize, opacity: settings.brushOpacity,
-          flowScale: settings.flowScale, spacingScale: settings.spacingScale, scatterScale: settings.scatterScale,
-        },
-        points, closed: false,
-      }))
+      let next = drag
+      for (const sample of pointerSamples(e)) {
+        const raw = toWorld(sample.x, sample.y)
+        next = addStabilizedSample(next, raw, settings.smoothing, settings.brushSize, zoom)
+      }
+      dragRef.current = next
+      pendingPathDraftRef.current = { id: next.id, points: next.points }
+      if (pathDraftFrameRef.current === null) pathDraftFrameRef.current = requestAnimationFrame(flushPathDraft)
     } else if (drag.kind === 'draw') {
       let dx = p.x - drag.start.x
       let dy = p.y - drag.start.y
@@ -771,23 +867,22 @@ export function Stage({ compact = false }: { compact?: boolean } = {}) {
         }
       }
     }
+    if (drag.kind === 'path' && e) {
+      for (const sample of pointerSamples(e)) {
+        const raw = toWorld(sample.x, sample.y)
+        drag = addStabilizedSample(drag, raw, settings.smoothing, settings.brushSize, zoom)
+      }
+      drag = settleStroke(drag, settings.smoothing, settings.brushSize, zoom)
+    }
+    if (pathDraftFrameRef.current !== null) cancelAnimationFrame(pathDraftFrameRef.current)
+    pathDraftFrameRef.current = null
+    pendingPathDraftRef.current = null
     dragRef.current = { kind: 'none' }
     if (drag.kind === 'draw' && draft && draft.width > 2 && draft.height > 2) {
       dispatch({ type: 'ADD_SHAPE', shape: { ...draft, id: uid('shape') } })
     }
     if (drag.kind === 'path' && drag.points.length > 1) {
-      const brushId = settings.brushId
-      dispatch({ type: 'ADD_SHAPE', shape: createShape({
-        name: `${tool === 'brush' ? 'Brush' : 'Pencil'} · ${getBrushName(brushId)}`, type: 'path',
-        x: 0, y: 0, width: project.width, height: project.height,
-        fill: 'none', stroke: state.strokeColor, strokeWidth: settings.brushSize,
-        opacity: settings.brushOpacity,
-        brush: {
-          id: brushId, size: settings.brushSize, opacity: settings.brushOpacity,
-          flowScale: settings.flowScale, spacingScale: settings.spacingScale, scatterScale: settings.scatterScale,
-        },
-        points: smoothPoints(drag.points, settings.smoothing), closed: false,
-      }) })
+      dispatch({ type: 'ADD_SHAPE', shape: makeStrokeShape(drag.points, drag.id) })
     }
     if (drag.kind === 'motionPathDraw' && drag.points.length > 1) {
       dispatch({ type: 'SET_MOTION_PATH', layerId: drag.layerId, shapeId: drag.shapeId, points: drag.points, times: drag.times })

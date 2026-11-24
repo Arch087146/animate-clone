@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
-import { BRUSHES, BRUSH_FAMILIES, getBrush, renderBrushPreview, type BrushFamily } from '../brushes'
+import { BRUSHES, getBrush, renderBrushPreview } from '../brushes'
+import { BrushPicker, type BrushPickerPosition } from './BrushPicker'
 import { BoneOptions } from './BoneOptions'
 import { Icon } from '../Icon'
 import { useStore } from '../store'
@@ -30,8 +31,9 @@ export function ToolOptions() {
   const { state, dispatch } = useStore()
   const { tool, toolSettings: s } = state
   const [collapsed, setCollapsed] = useState(false)
-  const [family, setFamily] = useState<BrushFamily>(getBrush(s.brushId).family)
-  const [search, setSearch] = useState('')
+  const [pickerOpen, setPickerOpen] = useState(false)
+  const [pickerPosition, setPickerPosition] = useState<BrushPickerPosition>({ top: 48, left: 16, width: 860, height: 520 })
+  const previewButtonRef = useRef<HTMLButtonElement>(null)
   const previewRef = useRef<HTMLCanvasElement>(null)
 
   const activeBrush = getBrush(s.brushId)
@@ -40,29 +42,45 @@ export function ToolOptions() {
     if (previewRef.current) renderBrushPreview(previewRef.current, activeBrush, state.strokeColor)
   }, [activeBrush, state.strokeColor])
 
+  useEffect(() => {
+    setPickerOpen(false)
+  }, [tool, collapsed])
+
+  const openPicker = () => {
+    const rect = previewButtonRef.current?.getBoundingClientRect()
+    const width = Math.min(860, window.innerWidth - 24)
+    const bottom = rect?.bottom ?? 48
+    const height = Math.min(520, Math.max(320, window.innerHeight - bottom - 16))
+    setPickerPosition({
+      top: Math.max(8, Math.min(bottom + 6, window.innerHeight - height - 8)),
+      left: Math.max(8, Math.min((rect?.left ?? 16) - 6, window.innerWidth - width - 8)),
+      width,
+      height,
+    })
+    setPickerOpen(true)
+  }
+
   const set = (key: keyof ToolSettings, value: number | string | boolean) => dispatch({ type: 'SET_TOOL_SETTING', key, value })
 
   const brushTools = tool === 'pencil' || tool === 'brush'
   const shapeTool = ['rectangle', 'oval', 'rectPrimitive', 'ovalPrimitive', 'polyStar', 'line'].includes(tool)
   const options = brushTools
     ? <>
-        <canvas ref={previewRef} className="brush-preview" width={92} height={30} title={activeBrush.name} />
+        <button
+          ref={previewButtonRef}
+          className="brush-preview-button"
+          title="Choose brush preset"
+          onClick={openPicker}
+        >
+          <canvas ref={previewRef} className="brush-preview" width={92} height={30} title={activeBrush.name} />
+          <span className="brush-preview-caret"><Icon name="chevronDown" size={10} /></span>
+        </button>
         <div className="tool-opt-stack">
-          <div className="tool-opt-row">
-            <select className="tool-opt-select" value={family} onChange={(e) => setFamily(e.target.value as BrushFamily)} title="Brush family">
-              {BRUSH_FAMILIES.map((f) => <option key={f} value={f}>{f}</option>)}
-            </select>
-            <select
-              className="tool-opt-select brush-select"
-              value={s.brushId}
-              onChange={(e) => set('brushId', e.target.value)}
-              title="Brush preset"
-            >
-              {BRUSHES.filter((b) => b.family === family && (!search || b.name.toLowerCase().includes(search.toLowerCase()))).map((b) => (
-                <option key={b.id} value={b.id}>{b.name.replace(`${b.family} `, '')}</option>
-              ))}
-            </select>
-            <input className="tool-opt-search" placeholder="Find brush…" value={search} onChange={(e) => setSearch(e.target.value)} />
+          <div className="tool-opt-row brush-active-row">
+            <button className="brush-name-button" onClick={openPicker} title={activeBrush.name}>
+              <span className="brush-name-label">{activeBrush.name.replace('Krita CC0 · ', '')}</span>
+              <span className="brush-name-category">{activeBrush.category ?? activeBrush.family}</span>
+            </button>
           </div>
           <div className="tool-opt-row">
             <Slider label="Size" value={s.brushSize} min={1} max={80} onChange={(v) => set('brushSize', v)} suffix="px" />
@@ -74,6 +92,14 @@ export function ToolOptions() {
           </div>
         </div>
         <span className="tool-opt-note" title={activeBrush.description}>{BRUSHES.length} brushes · {activeBrush.family}</span>
+        {pickerOpen && <BrushPicker
+          activeBrush={activeBrush}
+          color={state.strokeColor}
+          dark={state.theme === 'dark'}
+          position={pickerPosition}
+          onPick={(id) => { set('brushId', id); setPickerOpen(false) }}
+          onClose={() => setPickerOpen(false)}
+        />}
       </>
     : tool === 'eraser'
       ? <>

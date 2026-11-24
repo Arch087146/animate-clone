@@ -454,6 +454,24 @@ const slug = (value) =>
     .replace(/[^a-z0-9]+/g, '_')
     .replace(/^_+|_+$/g, '')
 
+// The bundle already groups presets by letter. Reuse that grouping instead of
+// inventing a taxonomy that does not match the source brushes.
+const KRITA_CATEGORIES = {
+  b: 'Essentials',
+  c: 'Pencils & Lineart',
+  d: 'Brushes & Glazing',
+  f: 'Textured Brushes',
+  g: 'Water',
+  x: 'Textures & Effects',
+  y: 'Textures & Effects',
+}
+const categoryFromKritaName = (name) => {
+  // Thin detail brushes belong with the pens even when the bundle filed them
+  // under its generic "basics" group.
+  if (/pencil|lineart|pointy|detail|thin brush|thin basic/i.test(name)) return 'Pencils & Lineart'
+  return KRITA_CATEGORIES[name.match(/^([a-z])\d*\)/)?.[1] ?? ''] ?? 'Other'
+}
+
 /* --------------------------------- Input --------------------------------- */
 
 async function loadSource() {
@@ -584,6 +602,7 @@ async function main() {
     id: 'krita_cc0_${slug(name)}_${i + 1}',
     name: ${JSON.stringify(`Krita CC0 · ${name}`)},
     family: 'Krita CC0',
+    category: ${JSON.stringify(categoryFromKritaName(name))},
     description: 'CC0 Krita preset from David Revoy’s 2025-01 brush bundle.',
     params: {
 ${paramLines}
