@@ -194,7 +194,7 @@ export interface ToolSettings {
 }
 
 export const createToolSettings = (): ToolSettings => ({
-  brushId: 'brush_pencil_1',
+  brushId: 'brush_basic_1',
   brushSize: 4,
   brushOpacity: 1,
   flowScale: 1,

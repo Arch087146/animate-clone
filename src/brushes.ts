@@ -2,13 +2,14 @@ import type { Point } from './types'
 import { CC0_BRUSHES } from './cc0Brushes.generated'
 
 export type BrushFamily =
-  | 'Pencil' | 'Charcoal' | 'Ink' | 'Watercolor' | 'Oil' | 'Chalk' | 'Marker' | 'Airbrush'
+  | 'Basic' | 'Pencil' | 'Charcoal' | 'Ink' | 'Watercolor' | 'Oil' | 'Chalk' | 'Marker' | 'Airbrush'
   | 'Crayon' | 'Calligraphy' | 'Spray' | 'Neon' | 'Texture' | 'Eraser' | 'Acrylic' | 'Gouache'
   | 'Pastel' | 'Fan' | 'Dry Brush' | 'Splatter' | 'Smudge' | 'Sumi' | 'Technical' | 'Fiber'
   | 'Gel' | 'Knife' | 'Sponge' | 'Stencil' | 'Bamboo' | 'Metallic' | 'Cloud' | 'Fur' | 'CC0'
 
 export type DabTexture = 'smooth' | 'paper' | 'canvas' | 'grit' | 'rough' | 'fibrous' | 'crackle'
 export type DabStamp = 'none' | 'dot' | 'square' | 'leaf' | 'grass' | 'star' | 'brick' | 'splat' | 'cloud' | 'ring' | 'scale' | 'scribble'
+export type CleanStroke = 'round' | 'taper' | 'highlighter'
 
 export interface BrushParams {
   /** Base dab diameter in stage pixels. */
@@ -57,6 +58,8 @@ export interface BrushParams {
   multicolor?: boolean
   /** Bundled CC0 brush tip image used as a stamp (public-domain GIMP tips). */
   stampImage?: string
+  /** Render as a clean vector pen stroke instead of textured dabs. */
+  cleanStroke?: CleanStroke
 }
 
 export interface BrushPreset {
@@ -181,6 +184,19 @@ type FamilySpec = {
 }
 
 const specs: FamilySpec[] = [
+  {
+    family: 'Basic', description: 'Clean, dependable pens for everyday lines, notes, and sketches.',
+    names: 'Round Pen,Fine Liner,Ballpoint,Gel Pen,Ink Pen,Brush Pen,Felt Tip,Marker,Highlighter,Technical Pen,Sign Pen,Calligraphy Pen,Journal Pen,Sketch Pen,Whiteboard Pen,Storyboard Pen'.split(','),
+    base: { size: 6, hardness: 1, opacity: 1, spacing: 0.05, scatter: 0, rotation: 0, bristles: 1, flow: 1, grain: 0, taper: 0, softness: 0, aspect: 1, glow: 0, velocitySize: 0, velocityOpacity: 0, cleanStroke: 'round' },
+    ranges: { size: [2, 18] },
+    vary: (i, p) => ({
+      ...p,
+      cleanStroke: i === 8 ? 'highlighter' : [5, 11].includes(i) ? 'taper' : 'round',
+      opacity: i === 8 ? 0.35 : i === 7 ? 0.8 : i === 3 ? 0.95 : 1,
+      taper: [5, 11].includes(i) ? 0.55 : 0,
+      velocitySize: i === 5 ? 0.35 : i === 11 ? 0.5 : 0,
+    }),
+  },
   {
     family: 'Pencil', description: 'Sharp, grainy drawing pencils from hard to soft.',
     names: 'HB,2H,4H,6H,2B,4B,6B,8B,Graphite,Sketch,Technical,Drafting,Fineline,Soft Core,Smudged,Blueprint,Carpentry,Tailor,Artist,Mechanical'.split(','),
@@ -778,6 +794,74 @@ function applyTexture(
   target.restore()
 }
 
+/** Clean vector pen rendering for the Basic family — no noise or dab seams. */
+function renderCleanStroke(
+  ctx: CanvasRenderingContext2D,
+  points: Point[],
+  brush: BrushPreset,
+  color: string,
+  options: BrushRenderOptions,
+) {
+  if (!points.length) return
+  const p = brush.params
+  const size = Math.max(0.5, p.size * (options.sizeScale ?? 1))
+  const alpha = clamp01(p.opacity * p.flow * (options.flowScale ?? 1) * (options.opacityScale ?? 1))
+  ctx.save()
+  ctx.lineCap = 'round'
+  ctx.lineJoin = 'round'
+  ctx.strokeStyle = color
+  ctx.fillStyle = color
+  ctx.globalAlpha = alpha
+  if (p.cleanStroke === 'highlighter') ctx.globalCompositeOperation = 'multiply'
+
+  if (points.length === 1) {
+    ctx.beginPath()
+    ctx.arc(points[0].x, points[0].y, size / 2, 0, Math.PI * 2)
+    ctx.fill()
+    ctx.restore()
+    return
+  }
+
+  if (p.cleanStroke === 'taper' && p.taper > 0) {
+    let maxSpeed = 0.0001
+    const speeds = points.slice(1).map((pt, i) => {
+      const d = Math.hypot(pt.x - points[i].x, pt.y - points[i].y)
+      maxSpeed = Math.max(maxSpeed, d)
+      return d
+    })
+    for (let i = 1; i < points.length; i++) {
+      const edge = (i / Math.max(1, points.length - 1)) * 2
+      const edgeFade = Math.min(edge, 2 - edge)
+      let pressure = 1 - p.taper * (1 - Math.pow(Math.max(0, edgeFade), 0.45))
+      pressure *= 1 - (p.velocitySize ?? 0) * (speeds[i - 1] / maxSpeed) * 0.82
+      ctx.lineWidth = Math.max(0.6, size * Math.max(0.08, pressure))
+      ctx.beginPath()
+      ctx.moveTo(points[i - 1].x, points[i - 1].y)
+      ctx.lineTo(points[i].x, points[i].y)
+      ctx.stroke()
+    }
+    ctx.restore()
+    return
+  }
+
+  ctx.lineWidth = size
+  ctx.beginPath()
+  ctx.moveTo(points[0].x, points[0].y)
+  if (points.length === 2) {
+    ctx.lineTo(points[1].x, points[1].y)
+  } else {
+    for (let i = 1; i < points.length - 1; i++) {
+      const a = points[i]
+      const b = points[i + 1]
+      ctx.quadraticCurveTo(a.x, a.y, (a.x + b.x) / 2, (a.y + b.y) / 2)
+    }
+    const last = points[points.length - 1]
+    ctx.lineTo(last.x, last.y)
+  }
+  ctx.stroke()
+  ctx.restore()
+}
+
 /**
  * Paints a stroke with many small overlapping dabs so brushes have real
  * texture instead of a flat canvas line. Rendering is deterministic for a
@@ -791,6 +875,7 @@ export function renderBrushStroke(
   options: BrushRenderOptions = {},
 ) {
   if (points.length < 1) return
+  if (brush.params.cleanStroke) return renderCleanStroke(ctx, points, brush, color, options)
   const p = brush.params
   const size = Math.max(0.5, p.size * (options.sizeScale ?? 1))
   const opacityScale = options.opacityScale ?? 1
