@@ -68,7 +68,7 @@ const TUTORIALS: Tutorial[] = [
       'Press Add pose or F6 to save the pose and jump forward. Pose again, add another keyframe, and repeat.',
       'Press Enter to play. Turn on onion skin above the stage if you want to see the previous pose while you work.',
     ],
-    tip: 'This is manual posing, not auto-walk: every step comes from the bones you move. Undo (Ctrl+Z) removes the last pose.',
+    tip: 'This is manual posing, not auto-walk: every step comes from the bones you move. Undo (Ctrl+Z) removes the last pose; select a bone and press Delete to remove it.',
     try: 'stickman', tool: 'bone',
   },
   {
@@ -124,7 +124,7 @@ const TUTORIALS: Tutorial[] = [
     steps: [
       'Tools: V select · A subselect · L lasso · P pen · T text · N line · R rectangle · O oval · Y pencil · B brush · E eraser · S ink bottle · K paint bucket · I eyedropper · H hand · Z zoom · M bones.',
       'Timeline: F5 insert frame · F6 add pose (uses Speed) · F7 blank keyframe · F8 convert to symbol · Enter play/pause.',
-      'Editing: Ctrl+Z undo · Ctrl+Shift+Z redo · Ctrl+C copy · Ctrl+V paste · Ctrl+D duplicate · Delete remove.',
+      'Editing: Ctrl+Z undo · Ctrl+Shift+Z redo · Ctrl+C copy · Ctrl+V paste · Ctrl+D duplicate · Delete removes the selected shape or bone.',
       'View: Ctrl+S save · Ctrl+O open · Ctrl+Enter publish · Ctrl++ / Ctrl+- zoom · Esc deselect.',
     ],
     tip: 'Hold Shift while drawing rectangles or lines to constrain to perfect squares and 45° angles.',

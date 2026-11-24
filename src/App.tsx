@@ -106,6 +106,11 @@ export default function App() {
         return
       }
       if (e.key === 'Delete' || e.key === 'Backspace') {
+        if (state.selection.boneId) {
+          e.preventDefault()
+          dispatch({ type: 'DELETE_BONE', boneId: state.selection.boneId })
+          return
+        }
         if (state.selection.shapeId && state.selection.layerId) {
           e.preventDefault()
           dispatch({ type: 'DELETE_SHAPE', layerId: state.selection.layerId, shapeId: state.selection.shapeId })

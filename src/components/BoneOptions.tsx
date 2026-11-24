@@ -141,7 +141,7 @@ export function BoneOptions({ embedded = false, compact = false }: { embedded?: 
               <Icon name="link" size={12} /> Attach selected shape
             </button>
             <button onClick={() => dispatch({ type: 'BIND_SHAPES_TO_BONES' })}>Auto-bind artwork</button>
-            <button className="danger" onClick={() => dispatch({ type: 'DELETE_BONE', boneId: bone.id })}><Icon name="trash" size={12} /> Delete</button>
+            <button className="danger" title="Delete selected bone (Delete key)" onClick={() => dispatch({ type: 'DELETE_BONE', boneId: bone.id })}><Icon name="trash" size={12} /> Delete</button>
             <span className="bone-attached">{shapeCount} bound shape{shapeCount === 1 ? '' : 's'}</span>
           </div>
         </div>
