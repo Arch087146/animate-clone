@@ -191,6 +191,8 @@ export interface ToolSettings {
   motionPathSpeed: number
   motionPathUseDrawingSpeed: boolean
   motionPathOrient: boolean
+  poseMode: 'character' | 'part'
+  poseSpeed: number
 }
 
 export const createToolSettings = (): ToolSettings => ({
@@ -213,6 +215,8 @@ export const createToolSettings = (): ToolSettings => ({
   motionPathSpeed: 1,
   motionPathUseDrawingSpeed: true,
   motionPathOrient: false,
+  poseMode: 'character',
+  poseSpeed: 1,
 })
 
 export interface AppState {

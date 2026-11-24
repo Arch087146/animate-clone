@@ -13,6 +13,7 @@ type DragMode =
   | { kind: 'lasso'; points: Point[] }
   | { kind: 'erase'; points: Point[] }
   | { kind: 'boneDraw'; start: Point; parentId: string | null }
+  | { kind: 'rigTranslate'; bones: Bone[]; shapes: Shape[]; start: Point; layerId: string }
   | { kind: 'boneRotate'; bone: Bone; bones: Bone[]; shapes: Shape[]; lastAngle: number; totalAngle: number; layerId: string }
   | { kind: 'boneTranslate'; bone: Bone; bones: Bone[]; shapes: Shape[]; start: Point; layerId: string }
   | { kind: 'point'; index: number; origin: Shape; layerId: string }
@@ -630,6 +631,15 @@ export function Stage({ compact = false }: { compact?: boolean } = {}) {
         return
       }
 
+      // Whole-character posing: grab any limb and the entire rig, including
+      // feet and bound artwork, moves together as one piece.
+      if (settings.poseMode === 'character' && near && !near.locked) {
+        dispatch({ type: 'SET_SELECTION', selection: { layerId, shapeId: null, boneId: near.id } })
+        dispatch({ type: 'BEGIN_TRANSFORM' })
+        dragRef.current = { kind: 'rigTranslate', bones, shapes, start: { x: p.x, y: p.y }, layerId }
+        return
+      }
+
       // Dragging the head joint or the bone body poses the rig.
       if (near && (onHead || selectedNear(near, selection.boneId, p, zoom))) {
         dispatch({ type: 'SET_SELECTION', selection: { layerId, shapeId: selection.shapeId ?? null, boneId: near.id } })
@@ -770,7 +780,7 @@ export function Stage({ compact = false }: { compact?: boolean } = {}) {
       const near = pickBone(p)
       e.currentTarget.style.cursor = snap ? 'crosshair' : near ? (near.locked ? 'not-allowed' : 'grab') : 'crosshair'
     } else if (tool === 'bone' && drag.kind !== 'none') {
-      e.currentTarget.style.cursor = drag.kind === 'boneTranslate' ? 'grabbing' : 'crosshair'
+      e.currentTarget.style.cursor = drag.kind === 'boneTranslate' || drag.kind === 'rigTranslate' ? 'grabbing' : 'crosshair'
     }
     if (drag.kind === 'pan') {
       dispatch({ type: 'SET_PAN', pan: { x: drag.pan.x + (e.clientX - drag.start.x), y: drag.pan.y + (e.clientY - drag.start.y) } })
@@ -802,6 +812,14 @@ export function Stage({ compact = false }: { compact?: boolean } = {}) {
         parentId: connect ? connect.bone.id : drag.parentId,
         connected: connect ? true : prev.connected,
       } : prev)
+    } else if (drag.kind === 'rigTranslate') {
+      const dx = p.x - drag.start.x
+      const dy = p.y - drag.start.y
+      const bones = drag.bones.map((b) => ({ ...b, x1: b.x1 + dx, y1: b.y1 + dy, x2: b.x2 + dx, y2: b.y2 + dy }))
+      const shapePatches = drag.shapes
+        .filter((s) => s.boneId)
+        .map((s) => ({ id: s.id, patch: translateShape(s, dx, dy) }))
+      dispatch({ type: 'SET_BONES', bones, shapePatches })
     } else if (drag.kind === 'boneRotate') {
       let pointerAngle = Math.atan2(p.y - drag.bone.y1, p.x - drag.bone.x1)
       if (e.shiftKey) pointerAngle = Math.round(pointerAngle / (Math.PI / 12)) * (Math.PI / 12)
@@ -944,7 +962,7 @@ export function Stage({ compact = false }: { compact?: boolean } = {}) {
       }
       setDraftBone(null)
     }
-    if (drag.kind === 'point' || drag.kind === 'boneRotate' || drag.kind === 'boneTranslate') dispatch({ type: 'END_TRANSFORM' })
+    if (drag.kind === 'point' || drag.kind === 'boneRotate' || drag.kind === 'boneTranslate' || drag.kind === 'rigTranslate') dispatch({ type: 'END_TRANSFORM' })
     if (drag.kind === 'move' || drag.kind === 'resize') dispatch({ type: 'END_TRANSFORM' })
     clearLiveStroke()
     setDraft(null)

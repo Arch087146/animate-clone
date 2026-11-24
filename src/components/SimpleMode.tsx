@@ -1,6 +1,7 @@
 import { BRUSHES, BRUSH_CATEGORIES, brushCategory, getBrush } from '../brushes'
 import { Icon } from '../Icon'
 import { exportAnimationHTML } from '../io'
+import { addPose } from '../poseActions'
 import { useStore } from '../store'
 import { getActiveKeyframe } from '../utils'
 import { Stage } from './Stage'
@@ -48,6 +49,7 @@ const COLORS = ['#000000', '#ffffff', '#e53935', '#fb8c00', '#fdd835', '#43a047'
 export function SimpleMode() {
   const { state, dispatch } = useStore()
   const { project, currentFrame, tool, toolSettings: settings } = state
+  const onAddPose = () => addPose({ dispatch, currentFrame, totalFrames: project.totalFrames, speed: settings.poseSpeed })
   const layer = project.layers.find((l) => l.id === state.selection.layerId) ?? project.layers[0]
   const kf = layer ? getActiveKeyframe(layer, currentFrame) : null
   const shape = kf?.shapes.find((s) => s.id === state.selection.shapeId)
@@ -184,7 +186,7 @@ export function SimpleMode() {
         </button>
         <span className="simple-frame-label">Frame {currentFrame + 1} of {project.totalFrames}</span>
         <input className="simple-frame-slider" type="range" min="0" max={project.totalFrames - 1} value={currentFrame} onChange={(e) => dispatch({ type: 'SET_CURRENT_FRAME', frame: Number(e.target.value) })} />
-        <button className="simple-pose-btn" onClick={() => dispatch({ type: 'INSERT_KEYFRAME' })}><Icon name="plus" size={14} /> Add pose</button>
+        <button className="simple-pose-btn" onClick={onAddPose}><Icon name="plus" size={14} /> Add pose</button>
         <button className={`simple-footer-tool ${state.onionSkin ? 'active' : ''}`} onClick={() => dispatch({ type: 'TOGGLE', key: 'onionSkin' })} title="See nearby frames"><Icon name="onion" size={15} /> Ghost frames</button>
         <button className="simple-footer-tool" onClick={() => dispatch({ type: 'UNDO' })} title="Undo"><Icon name="undo" size={15} /></button>
         <button className="simple-footer-tool" onClick={() => dispatch({ type: 'REDO' })} title="Redo"><Icon name="redo" size={15} /></button>

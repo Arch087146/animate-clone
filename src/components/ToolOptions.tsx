@@ -87,6 +87,11 @@ export function ToolOptions() {
             <Slider label="Opacity" value={s.brushOpacity} min={0.05} max={1} step={0.05} onChange={(v) => set('brushOpacity', v)} suffix="" />
             <Slider label="Flow" value={s.flowScale} min={0.2} max={2} step={0.05} onChange={(v) => set('flowScale', v)} />
             <Slider label="Smooth" value={s.smoothing} min={0} max={1} step={0.05} onChange={(v) => set('smoothing', v)} />
+            <button
+              className={`tool-opt-toggle ${s.smoothing === 0 ? 'active' : ''}`}
+              title="Turn off the stabilizer delay for immediate, direct strokes"
+              onClick={() => set('smoothing', s.smoothing === 0 ? 0.35 : 0)}
+            >No lag</button>
             <Slider label="Spacing" value={s.spacingScale} min={0.3} max={2} step={0.05} onChange={(v) => set('spacingScale', v)} />
             <Slider label="Scatter" value={s.scatterScale} min={0} max={3} step={0.1} onChange={(v) => set('scatterScale', v)} />
           </div>

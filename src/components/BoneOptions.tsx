@@ -1,3 +1,4 @@
+import { addPose } from '../poseActions'
 import { useStore } from '../store'
 import type { Bone } from '../types'
 import { getActiveKeyframe } from '../utils'
@@ -15,7 +16,8 @@ function NumberField({ label, value, min, max, onChange }: { label: string; valu
 /** Animate-style bone properties, shared by the tool options bar and Properties panel. */
 export function BoneOptions({ embedded = false, compact = false }: { embedded?: boolean; compact?: boolean }) {
   const { state, dispatch } = useStore()
-  const { project, currentFrame, selection } = state
+  const { project, currentFrame, selection, toolSettings } = state
+  const { poseMode, poseSpeed } = toolSettings
   const layer = project.layers.find((l) => l.id === selection.layerId) ?? project.layers[0]
   const kf = layer ? getActiveKeyframe(layer, currentFrame) : null
   const bones = kf?.bones ?? []
@@ -25,21 +27,42 @@ export function BoneOptions({ embedded = false, compact = false }: { embedded?: 
   const set = (patch: Partial<Bone>) => {
     if (bone) dispatch({ type: 'SET_BONE_PROP', boneId: bone.id, patch })
   }
-  const addPose = () => {
-    dispatch({ type: 'INSERT_KEYFRAME' })
-    dispatch({ type: 'SET_KEYFRAME_TWEEN', tween: 'motion' })
-    dispatch({ type: 'STATUS', message: 'Pose keyframe added' })
+  const setPoseMode = (mode: 'character' | 'part') => dispatch({ type: 'SET_TOOL_SETTING', key: 'poseMode', value: mode })
+  const setSpeed = (value: number) => dispatch({ type: 'SET_TOOL_SETTING', key: 'poseSpeed', value: Math.max(0.25, Math.min(4, value || 1)) })
+  const selectPart = (boneId: string) => {
+    setPoseMode('part')
+    dispatch({ type: 'SET_SELECTION', selection: { layerId: layer?.id ?? selection.layerId, shapeId: null, boneId } })
   }
+  const onAddPose = () => addPose({ dispatch, currentFrame, totalFrames: project.totalFrames, speed: poseSpeed })
+
+  const poseControls = (
+    <>
+      <div className="bone-pose-switch">
+        <button className={poseMode === 'character' ? 'active' : ''} onClick={() => setPoseMode('character')} title="Drag anywhere on the rig to move the whole character">Whole character</button>
+        <button className={poseMode === 'part' ? 'active' : ''} onClick={() => setPoseMode('part')} title="Rotate or move one bone; connected children follow">Single part</button>
+      </div>
+      <select className="bone-part-select" value={bone?.id ?? ''} onChange={(e) => selectPart(e.target.value)} title="Select a limb to pose">
+        <option value="">Select part…</option>
+        {bones.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
+      </select>
+      <label className="bone-speed" title="Faster poses put fewer frames between keyframes">
+        Speed <input type="number" min={0.25} max={4} step={0.25} value={poseSpeed} onChange={(e) => setSpeed(Number(e.target.value))} />×
+      </label>
+    </>
+  )
 
   if (compact) {
     return (
       <>
         <Icon name="bone" size={18} />
+        {poseControls}
         <label className="tool-opt-check"><input type="checkbox" checked={state.showBones} onChange={() => dispatch({ type: 'TOGGLE', key: 'showBones' })} /> Show bones</label>
-        <button className="bone-quick" onClick={addPose}><Icon name="plus" size={13} /> Add pose</button>
+        <button className="bone-quick" onClick={onAddPose}><Icon name="plus" size={13} /> Add pose</button>
         <button className="bone-quick" onClick={() => dispatch({ type: 'BIND_SHAPES_TO_BONES' })}><Icon name="layers" size={13} /> Bind artwork</button>
         <span className="tool-opt-note">
-          {bone ? `${bone.name} · full rig controls in Properties` : 'Drag to draw · tail joint adds a child · Alt for free bone'}
+          {poseMode === 'character'
+            ? 'Drag any limb to move the whole character · pick a part to pose one limb'
+            : bone ? `${bone.name} selected · connected parts follow` : 'Drag a bone to pose it · tail joint adds a child'}
         </span>
       </>
     )
@@ -51,7 +74,8 @@ export function BoneOptions({ embedded = false, compact = false }: { embedded?: 
         <button className={`bone-quick ${state.tool === 'bone' ? 'active' : ''}`} onClick={() => dispatch({ type: 'SET_TOOL', tool: 'bone' })}>
           <Icon name="bone" size={14} /> Bone tool
         </button>
-        <button className="bone-quick" onClick={addPose}><Icon name="plus" size={13} /> Add pose</button>
+        {poseControls}
+        <button className="bone-quick" onClick={onAddPose}><Icon name="plus" size={13} /> Add pose</button>
         <button className="bone-quick" onClick={() => dispatch({ type: 'BIND_SHAPES_TO_BONES' })}><Icon name="layers" size={13} /> Bind artwork</button>
         <label className="bone-quick check"><input type="checkbox" checked={state.showBones} onChange={() => dispatch({ type: 'TOGGLE', key: 'showBones' })} /> Show bones</label>
       </div>
@@ -80,7 +104,11 @@ export function BoneOptions({ embedded = false, compact = false }: { embedded?: 
               <div className="bone-group-title">Joint</div>
               <label className="bone-check"><input type="checkbox" checked={bone.connected !== false} onChange={(e) => set({ connected: e.target.checked })} /> Connected to parent</label>
               <label className="bone-check"><input type="checkbox" checked={!!bone.locked} onChange={(e) => set({ locked: e.target.checked })} /> Lock bone</label>
-              <div className="bone-hint">Tail joint → chain child · head → move · body → rotate · <kbd>Shift</kbd> snaps 15°</div>
+              <div className="bone-hint">
+                {poseMode === 'character'
+                  ? 'Drag any limb to move the whole character · tail joint chains a child'
+                  : <>Tail joint → chain child · head → move · body → rotate · <kbd>Shift</kbd> snaps 15°</>}
+              </div>
             </div>
 
             <div className="bone-group">

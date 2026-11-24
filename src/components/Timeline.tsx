@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { Icon } from '../Icon'
+import { addPose } from '../poseActions'
 import { useStore } from '../store'
 import { findKeyframeIndex, getActiveKeyframe } from '../utils'
 
@@ -10,7 +11,8 @@ const ROW_HEIGHTS = [18, 24, 30]
 
 export function Timeline() {
   const { state, dispatch } = useStore()
-  const { project, currentFrame, playing } = state
+  const { project, currentFrame, playing, toolSettings } = state
+  const onAddPose = () => addPose({ dispatch, currentFrame, totalFrames: project.totalFrames, speed: toolSettings.poseSpeed })
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; frame: number } | null>(null)
   const [collapsed, setCollapsed] = useState(false)
   const [customMenu, setCustomMenu] = useState(false)
@@ -160,7 +162,7 @@ export function Timeline() {
         <div className="tl-spacer" />
         <div className="tl-group">
           <button className="mini-btn" title="Insert frame (F5)" onClick={() => dispatch({ type: 'INSERT_FRAME' })}><Icon name="plus" size={13} /></button>
-          <button className="mini-btn" title="Insert keyframe (F6)" onClick={() => dispatch({ type: 'INSERT_KEYFRAME' })}><Icon name="keyframe" size={13} /></button>
+          <button className="mini-btn" title="Add pose keyframe (F6)" onClick={onAddPose}><Icon name="keyframe" size={13} /></button>
           <button className="mini-btn" title="Insert blank keyframe (F7)" onClick={() => dispatch({ type: 'INSERT_KEYFRAME', blank: true })}><Icon name="blankKeyframe" size={13} /></button>
           <button className="mini-btn" title="Copy frame" onClick={() => dispatch({ type: 'COPY_FRAME' })}><Icon name="copy" size={13} /></button>
           <button className="mini-btn" title="Paste frame" onClick={() => dispatch({ type: 'PASTE_FRAME' })}><Icon name="paste" size={13} /></button>
@@ -168,7 +170,7 @@ export function Timeline() {
           {visibleTools.pose && <button
             className="mini-btn pose-btn"
             title="Add pose keyframe — captures the current rig as a motion keyframe"
-            onClick={() => { dispatch({ type: 'INSERT_KEYFRAME' }); dispatch({ type: 'SET_KEYFRAME_TWEEN', tween: 'motion' }); dispatch({ type: 'STATUS', message: 'Pose keyframe added' }) }}
+            onClick={onAddPose}
           ><Icon name="bone" size={13} /></button>}
         </div>
         <span className="toolbar-divider" />

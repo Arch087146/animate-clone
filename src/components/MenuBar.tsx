@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Icon } from '../Icon'
 import { WindowControls } from './WindowControls'
 import { exportAnimationHTML, exportJSON, exportPNG, importImages, openProjectFile } from '../io'
+import { addPose } from '../poseActions'
 import { useStore } from '../store'
 import { createShape, uid } from '../types'
 import { getActiveKeyframe } from '../utils'
@@ -41,6 +42,13 @@ export function MenuBar() {
     })
     dispatch({ type: 'STATUS', message: `Broke apart ${shape.name} into a path` })
   }
+
+  const onAddPose = () => addPose({
+    dispatch,
+    currentFrame: state.currentFrame,
+    totalFrames: state.project.totalFrames,
+    speed: state.toolSettings.poseSpeed,
+  })
 
   const applyWorkspace = (name: string) => {
     setWorkspace(name)
@@ -147,7 +155,7 @@ export function MenuBar() {
       { label: 'Onion Keyframes Only', checked: state.onionKeyframesOnly, action: () => dispatch({ type: 'TOGGLE', key: 'onionKeyframesOnly' }) },
     ],
     Insert: [
-      { label: 'Keyframe', shortcut: 'F6', action: () => dispatch({ type: 'INSERT_KEYFRAME' }) },
+      { label: 'Add Pose', shortcut: 'F6', action: onAddPose },
       { label: 'Blank Keyframe', shortcut: 'F7', action: () => dispatch({ type: 'INSERT_KEYFRAME', blank: true }) },
       { label: 'Frame', shortcut: 'F5', action: () => dispatch({ type: 'INSERT_FRAME' }) },
       { separator: true },
@@ -175,7 +183,7 @@ export function MenuBar() {
     Timeline: [
       { label: 'Insert Frame', shortcut: 'F5', action: () => dispatch({ type: 'INSERT_FRAME' }) },
       { label: 'Remove Frame', shortcut: 'Shift+F5', action: () => dispatch({ type: 'REMOVE_FRAME' }) },
-      { label: 'Insert Keyframe', shortcut: 'F6', action: () => dispatch({ type: 'INSERT_KEYFRAME' }) },
+      { label: 'Add Pose', shortcut: 'F6', action: onAddPose },
       { label: 'Insert Blank Keyframe', shortcut: 'F7', action: () => dispatch({ type: 'INSERT_KEYFRAME', blank: true }) },
       { label: 'Remove Keyframe', shortcut: 'Shift+F6', action: () => dispatch({ type: 'REMOVE_KEYFRAME' }) },
       { separator: true },

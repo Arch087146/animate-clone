@@ -10,6 +10,7 @@ import { Timeline } from './components/Timeline'
 import { Toolbar } from './components/Toolbar'
 import { Tutorials } from './components/Tutorials'
 import { exportAnimationHTML, exportJSON, openProjectFile } from './io'
+import { addPose } from './poseActions'
 import { uid } from './types'
 import { getActiveKeyframe } from './utils'
 import { useStore } from './store'
@@ -86,7 +87,16 @@ export default function App() {
       if (state.screen !== 'editor') return
 
       if (key === 'f5') { e.preventDefault(); dispatch({ type: 'INSERT_FRAME' }); return }
-      if (key === 'f6') { e.preventDefault(); dispatch({ type: 'INSERT_KEYFRAME' }); return }
+      if (key === 'f6') {
+        e.preventDefault()
+        addPose({
+          dispatch,
+          currentFrame: state.currentFrame,
+          totalFrames: state.project.totalFrames,
+          speed: state.toolSettings.poseSpeed,
+        })
+        return
+      }
       if (key === 'f7') { e.preventDefault(); dispatch({ type: 'INSERT_KEYFRAME', blank: true }); return }
       if (key === 'f8') {
         e.preventDefault()

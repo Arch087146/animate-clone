@@ -1053,6 +1053,20 @@ html:has(.app-shell.dark) { background: #1c1c1c; }
 .bone-quick.active { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
 .bone-quick.check { background: transparent; border-color: transparent; }
 .bone-quick.check input { margin: 0; }
+.bone-pose-switch { display: inline-flex; border: 1px solid #aaa; border-radius: 3px; overflow: hidden; }
+.bone-pose-switch button {
+  height: 22px; padding: 0 7px; border: 0; background: #f6f6f6; color: #444;
+  font-size: 10px; white-space: nowrap; cursor: pointer;
+}
+.bone-pose-switch button + button { border-left: 1px solid #aaa; }
+.bone-pose-switch button:hover { background: #e4e4e4; }
+.bone-pose-switch button.active { background: var(--accent); color: #fff; font-weight: 700; }
+.bone-part-select {
+  height: 23px; max-width: 132px; padding: 0 4px; border: 1px solid #aaa;
+  border-radius: 3px; background: #fff; font-size: 10px;
+}
+.bone-speed { display: inline-flex; align-items: center; gap: 3px; font-size: 10px; color: #666; white-space: nowrap; }
+.bone-speed input { width: 46px; height: 22px; border: 1px solid #aaa; border-radius: 3px; background: #fff; padding: 0 3px; font-size: 10px; }
 .bone-empty { display: flex; align-items: center; gap: 10px; padding: 7px 2px; }
 .bone-empty > svg { color: var(--accent); flex: 0 0 auto; }
 .bone-empty b { font-size: 11px; }
@@ -1091,6 +1105,13 @@ html:has(.app-shell.dark) { background: #1c1c1c; }
 .app-shell.dark .bone-quick:hover, .app-shell.dark .bone-editor-actions button:hover { background: #454545; }
 .app-shell.dark .bone-quick.check { background: transparent; border-color: transparent; }
 .app-shell.dark .bone-quick.active { background: #1d3a63; border-color: #4c9aff; color: #a8d1ff; }
+.app-shell.dark .bone-pose-switch, .app-shell.dark .bone-part-select, .app-shell.dark .bone-speed input { border-color: #565656; }
+.app-shell.dark .bone-pose-switch button { background: #343434; border-color: #565656; color: #ddd; }
+.app-shell.dark .bone-pose-switch button + button { border-left-color: #565656; }
+.app-shell.dark .bone-pose-switch button:hover { background: #454545; }
+.app-shell.dark .bone-pose-switch button.active { background: #4c9aff; color: #061c33; }
+.app-shell.dark .bone-part-select, .app-shell.dark .bone-speed input { background: #1f1f1f; color: #e0e0e0; }
+.app-shell.dark .bone-speed { color: #b5b5b5; }
 .app-shell.dark .bone-empty p, .app-shell.dark .bone-hint, .app-shell.dark .bone-meta, .app-shell.dark .bone-attached { color: #999; }
 .app-shell.dark .bone-group { background: #262626; border-color: #4a4a4a; }
 .app-shell.dark .bone-group-title { color: #999; }

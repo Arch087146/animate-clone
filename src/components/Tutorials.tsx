@@ -47,12 +47,13 @@ const TUTORIALS: Tutorial[] = [
     intro: 'Add a skeleton to a stick figure so you can pose limbs instead of redrawing them.',
     steps: [
       'Open the “Stick Figure Rig” template — it already has a skeleton attached to the artwork.',
-      'Select the Bone tool (M) and drag a joint of a leg or arm to rotate it. Children follow automatically.',
+      'Select the Bone tool (M). “Whole character” is on by default — drag any limb and the whole rig moves with it.',
+      'Choose “Single part” or the Select part list to grab just a leg or arm. Connected feet and children follow.',
+      'Set Speed in the bone options, then press Add pose (F6). The playhead jumps forward by the right number of frames.',
       'To create a new bone, drag from the end of an existing bone — it becomes a child.',
       'Select a shape and a bone, then use Attach in the Bone properties section to bind them.',
-      'Add a keyframe later in the timeline and pose the rig again to animate the movement.',
     ],
-    tip: 'Press F6 to add a pose keyframe. The armature interpolates between poses on a motion tween.',
+    tip: 'Faster Speed means fewer frames between poses. Lower Smooth or press No lag if drawing feels delayed.',
     try: 'stickman', tool: 'bone',
   },
   {

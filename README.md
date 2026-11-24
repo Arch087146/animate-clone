@@ -58,11 +58,14 @@ npm run dist         # rebuild and repackage into release/
 
 ### Bone rigging (armature / IK)
 - Draw bones on the stage; drag from a bone's **tail joint** to chain connected children, or hold **Alt** to create a free (unconnected) bone
+- **Whole character** mode is on by default: drag any limb to move the entire rig, including legs and bound artwork
+- Switch to **Single part** or use **Select part** to pose one leg/arm; connected children still follow
 - Grab a bone's **head joint** to translate it, or its **body** to rotate it; connected children and bound artwork follow. **Shift** snaps rotation to 15° increments
 - Bones can also be posed with the Selection tool, just like Animate
+- **Speed** controls how far the playhead jumps when you add a pose; faster settings put fewer frames between poses
 - Animate-style Bone properties panel: name, length, angle, connected/locked state, rotation limits, X/Y translation limits, per-bone easing
 - Bind artwork to bones automatically (nearest-bone assignment) or attach the selected shape manually
-- Add pose keyframes from the tool bar, Properties panel or timeline; pose keyframes and armature layers get distinct visuals in the timeline
+- Add pose keyframes from the tool bar, Properties panel, timeline, Insert/Timeline menus or `F6`; the playhead jumps forward based on Speed, and pose keyframes/armature layers get distinct visuals in the timeline
 - Rig poses interpolate between keyframes with per-bone easing
 
 ### Keyboard shortcuts
@@ -73,7 +76,7 @@ npm run dist         # rebuild and repackage into release/
 | `R` / `O` | Rectangle / Oval |
 | `M` | Bone tool |
 | `E` | Eraser |
-| `F5` / `F6` / `F7` | Insert frame / keyframe / blank keyframe |
+| `F5` / `F6` / `F7` | Insert frame / add pose keyframe (uses Speed) / blank keyframe |
 | `F8` | Convert selected shape to a symbol |
 | `Enter` | Play / stop |
 | `Ctrl+N` | New project |
