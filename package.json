@@ -2,6 +2,11 @@
   "name": "animate-clone",
   "private": true,
   "version": "1.1.0",
+  "description": "Open-source Animate-inspired 2D animation app",
+  "author": {
+    "name": "Arch087146",
+    "email": "arch087146@users.noreply.github.com"
+  },
   "type": "module",
   "main": "electron/main.cjs",
   "scripts": {
@@ -83,6 +88,7 @@
     "linux": {
       "icon": "icon.png",
       "category": "Graphics",
+      "maintainer": "Arch087146 <arch087146@users.noreply.github.com>",
       "target": [
         {
           "target": "AppImage",
