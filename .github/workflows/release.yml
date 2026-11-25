@@ -25,7 +25,7 @@ jobs:
           - os: macos-latest
             builder_args: --mac dmg zip --x64 --arm64
           - os: ubuntu-latest
-            builder_args: --linux AppImage deb --x64
+            builder_args: --linux AppImage deb rpm --x64
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
@@ -35,6 +35,9 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run build
+      - name: Install Linux packaging deps
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y rpm
       - name: Build Electron artifacts
         run: npx electron-builder ${{ matrix.builder_args }} --publish never
         env:
@@ -50,6 +53,7 @@ jobs:
             release/*.zip
             release/*.AppImage
             release/*.deb
+            release/*.rpm
             release/latest*.yml
             release/*.yml
           if-no-files-found: error
