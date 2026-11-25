@@ -13,9 +13,21 @@ interface Tutorial {
   tip: string
   try?: 'stickman' | 'bouncing' | 'blank' | 'logo'
   tool?: 'pencil' | 'brush' | 'bone' | 'selection'
+  video?: string
 }
 
 const TUTORIALS: Tutorial[] = [
+  {
+    id: 'full-video', title: 'Full video tutorial (every feature)', icon: 'play', time: 'Video', level: 'All',
+    intro: 'Watch a complete walkthrough of Animate, covering the interface, tools, timeline, rigging, motion, panels, export, and shortcuts.',
+    steps: [
+      'Press play to watch the full in-app tutorial video.',
+      'Use the video controls to pause, scrub, adjust volume, or go fullscreen.',
+      'Follow along by opening a new project or template in another window/tab of your workflow.',
+    ],
+    tip: 'You can pause the video at any chapter and try the feature directly in the app.',
+    video: '/tutorials/animate-every-feature-tutorial.mp4',
+  },
   {
     id: 'tour', title: 'App tour: where everything is', icon: 'home', time: '4 min', level: 'All',
     intro: 'A quick map of the editor so you always know which panel to open.',
@@ -167,6 +179,11 @@ export function Tutorials() {
             <h1>{tutorial.title}</h1>
             <p>{tutorial.intro}</p>
           </div>
+          {tutorial.video && (
+            <div className="tutorial-video-wrap">
+              <video className="tutorial-video" src={tutorial.video} controls preload="metadata" />
+            </div>
+          )}
           <ol className="tutorial-steps">
             {tutorial.steps.map((step, i) => <li key={i}><span>{i + 1}</span><p>{step}</p></li>)}
           </ol>
